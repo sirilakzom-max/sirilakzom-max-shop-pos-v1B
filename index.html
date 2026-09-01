@@ -2799,6 +2799,25 @@ window.__pendingProductImageStoragePath = null;
             return; // หยุดตรงนี้ก่อน — ที่เหลือจะเริ่มทำงานหลังกด "บันทึกและเริ่มใช้งาน" แล้วโหลดหน้าใหม่
           }
 
+          // Daily POS login requires the shared Supabase user list.
+          // Do not leave a first-time device on an empty PIN screen with no users.
+          if (!hasSupabaseConfig) {
+            const lockScreen = document.getElementById('lock-screen');
+            const setupScreen = document.getElementById('first-time-setup-screen');
+            if (lockScreen) lockScreen.style.display = 'none';
+            if (setupScreen) {
+              setupScreen.classList.remove('hidden');
+              setupScreen.classList.add('flex');
+              const fresh = document.getElementById('setup-fresh-fields');
+              const join = document.getElementById('setup-join-fields');
+              // Existing local account: go directly to the cloud/store connection form.
+              if (fresh && join) { fresh.classList.add('hidden'); join.classList.remove('hidden'); }
+            }
+            const splash = document.getElementById('sync-splash-screen');
+            if (splash) splash.remove();
+            return;
+          }
+
           // HTTPS Warn Checking
           if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
             const banner = document.getElementById('https-warning-banner');
@@ -10817,23 +10836,100 @@ window.logTransaction = async function (action, details = {}, opts = {}) {
 (function(){
   const $=id=>document.getElementById(id);
   const roleLabel=r=>{r=String(r||'').toUpperCase();return (r==='ADMIN'||r==='OWNER')?'ADMIN · เจ้าของ/ผู้ดูแลร้าน':'USER · พนักงาน';};
+  // ==========================================
+  // POS PIN KEYPAD
+  // The lock screen buttons call these functions directly from inline onclick.
+  // Keep them on window so Safari/iOS can invoke them reliably.
+  // ==========================================
+  window.posLoginPinBuffer = '';
+  window.__posPinBusy = false;
+  window.updatePosLoginPinDots = function(){
+    const pin=String(window.posLoginPinBuffer||'');
+    document.querySelectorAll('#login-pin-dots > span').forEach((dot,i)=>{
+      dot.classList.toggle('pin-dot-active', i < pin.length);
+    });
+  };
+  window.posLoginPinClear = function(){
+    window.posLoginPinBuffer='';
+    window.updatePosLoginPinDots();
+  };
+  window.posLoginPinBackspace = function(){
+    const pin=String(window.posLoginPinBuffer||'');
+    window.posLoginPinBuffer=pin.slice(0,-1);
+    window.updatePosLoginPinDots();
+  };
+  window.posLoginPin = function(digit){
+    if(window.__posPinBusy) return;
+    const sel=document.getElementById('login-user-select');
+    const userId=sel?.value||'';
+    if(!userId){
+      const err=document.getElementById('account-login-error-text');
+      if(err){
+        err.textContent='❌ กรุณาเลือกผู้ใช้งานก่อนใส่ PIN';
+        err.classList.remove('hidden');
+        clearTimeout(window.__posPinErrTimer);
+        window.__posPinErrTimer=setTimeout(()=>err.classList.add('hidden'),2200);
+      }
+      return;
+    }
+    const d=String(digit);
+    if(!/^[0-9]$/.test(d)) return;
+    const pin=String(window.posLoginPinBuffer||'');
+    if(pin.length>=4) return;
+    window.posLoginPinBuffer=pin+d;
+    window.updatePosLoginPinDots();
+    if(window.posLoginPinBuffer.length===4){
+      // Let the last dot paint before the async RPC starts.
+      setTimeout(()=>window.submitPosPinLogin?.(),60);
+    }
+  };
+
   window.setFirstOwnerPinFromSetup=async function(){
+    const url=getConfiguredSupabaseUrl();
+    const key=getConfiguredSupabaseAnonKey();
+    if(!url||!key){
+      const setup=document.getElementById('first-time-setup-screen');
+      const lock=document.getElementById('lock-screen');
+      if(setup){
+        setup.classList.remove('hidden');
+        setup.classList.add('flex');
+        const fresh=document.getElementById('setup-fresh-fields');
+        const join=document.getElementById('setup-join-fields');
+        // For an already-created local account, show the existing-store connection form.
+        if(fresh&&join){ fresh.classList.add('hidden'); join.classList.remove('hidden'); }
+      }
+      if(lock)lock.style.display='none';
+      return showAlert('ยังไม่ได้เชื่อมต่อ Supabase','กรุณาเชื่อมต่อฐานข้อมูลของร้านก่อน จึงจะสร้าง PIN เจ้าของร้านและเข้า POS ได้',true);
+    }
     const pin=prompt('ตั้ง PIN เจ้าของร้าน 4 หลักใหม่');
     if(!/^[0-9]{4}$/.test(pin||'')) return showAlert('PIN ไม่ถูกต้อง','กรุณาใช้ตัวเลข 4 หลัก',true);
     try{const {error}=await getSupabaseClient().rpc('set_first_owner_pin',{p_pin:pin});if(error)throw error;showAlert('สำเร็จ','ตั้ง PIN เจ้าของร้านแล้ว จากนี้เข้า POS ด้วยชื่อ + PIN 4 หลัก',false);await window.refreshPosLoginUsers()}catch(e){showAlert('ตั้ง PIN ไม่สำเร็จ',e.message||String(e),true)}
   };
   window.refreshPosLoginUsers=async function(){
     const sel=$('login-user-select'); if(!sel)return;
+    window.posLoginPinClear();
     sel.innerHTML='<option value="">กำลังโหลดรายชื่อ...</option>';
+    const url=getConfiguredSupabaseUrl();
+    const key=getConfiguredSupabaseAnonKey();
+    if(!url||!key){
+      sel.innerHTML='<option value="">ยังไม่ได้เชื่อมต่อ Supabase</option>';
+      return;
+    }
     try{
       const {data,error}=await getSupabaseClient().rpc('list_pos_users');
       if(error)throw error;
-      sel.innerHTML='<option value="">เลือกผู้ใช้งาน</option>'+(data||[]).map(u=>`<option value="${u.id}">${escapeHTML(u.name||'ผู้ใช้งาน')} · ${escapeHTML(roleLabel(u.role))}</option>`).join('');
+      const users=Array.isArray(data)?data:[];
+      sel.innerHTML=users.length
+        ? '<option value="">เลือกผู้ใช้งาน</option>'+users.map(u=>`<option value="${u.id}">${escapeHTML(u.name||'ผู้ใช้งาน')} · ${escapeHTML(roleLabel(u.role))}</option>`).join('')
+        : '<option value="">ยังไม่มีผู้ใช้งานในฐานข้อมูล</option>';
     }catch(e){
       sel.innerHTML='<option value="">เชื่อมต่อฐานข้อมูลกลางก่อน</option>';
       console.warn('[PIN LOGIN]',e);
     }
   };
+  const loginUserSelect=$('login-user-select');
+  if(loginUserSelect) loginUserSelect.addEventListener('change',()=>window.posLoginPinClear());
+
   window.submitPosPinLogin=async function(){if(window.__posPinBusy)return;const id=$('login-user-select')?.value||'',pin=String(window.posLoginPinBuffer||'');if(!id||!/^[0-9]{4}$/.test(pin)){window.posLoginPinClear?.();return}window.__posPinBusy=true;try{const {data,error}=await getSupabaseClient().rpc('verify_pos_pin',{p_user_id:id,p_pin:pin});if(error)throw error;const u=Array.isArray(data)?data[0]:data;if(!u)throw new Error('PIN ไม่ถูกต้อง หรือผู้ใช้งานถูกปิดใช้งาน');window.currentPosUser=u;window.currentPosRole=String(u.role||'CASHIER').toUpperCase();currentUserId=u.id;currentUserName=u.name||'';localStorage.setItem('POS_CURRENT_USER_ID',u.id);localStorage.setItem('POS_CURRENT_USER_ROLE',window.currentPosRole);localStorage.setItem('POS_CURRENT_USER_NAME',u.name||'');const lock=$('lock-screen');if(lock){lock.style.opacity='0';setTimeout(()=>{lock.style.display='none';lock.style.opacity='1'},220)}window.posLoginPinClear?.();window.applyRolePermissions?.(window.currentPosRole);window.renderAll?.();showToast?.(`เข้าสู่ระบบสำเร็จ: ${u.name} · ${roleLabel(u.role)}`)}catch(e){const err=$('account-login-error-text');if(err){err.textContent='❌ '+(e.message||'PIN ไม่ถูกต้อง');err.classList.remove('hidden');setTimeout(()=>err.classList.add('hidden'),2500)}window.posLoginPinClear?.()}finally{window.__posPinBusy=false}};
   window.applyRolePermissions=function(role){
     role=String(role||'').toUpperCase();
