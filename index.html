@@ -187,7 +187,7 @@
           </div>
           <div>
             <label class="text-xs font-bold text-slate-300 block mb-1">อีเมลเจ้าของร้าน</label>
-            <input type="text" id="setup-user-id" type="email" autocomplete="email" placeholder="owner@example.com" class="w-full bg-white/10 border border-white/20 rounded-xl py-3 px-4 outline-none text-sm text-white placeholder-white/30">
+            <input type="text" id="setup-user-id" autocomplete="email" placeholder="owner@example.com" class="w-full bg-white/10 border border-white/20 rounded-xl py-3 px-4 outline-none text-sm text-white placeholder-white/30">
             <p class="text-[9px] text-slate-500 mt-1">ใช้สำหรับการยืนยัน/เชื่อมต่อบัญชีเจ้าของร้านในขั้นตอนตั้งค่าเริ่มต้นเท่านั้น</p>
           </div>
           <div>
@@ -267,7 +267,7 @@
           <button onclick="window.posLoginPinBackspace()" class="py-4 rounded-2xl bg-white/5 text-xl font-bold btn-touch">⌫</button>
         </div>
         <p id="account-login-separation-note" class="text-[10px] text-slate-500 text-center leading-relaxed">เข้า POS ประจำวัน: ชื่อผู้ใช้งาน + PIN 4 หลัก · Email/Password ใช้เฉพาะตั้งค่า/ยืนยันบัญชีกับ Supabase</p>
-        <button onclick="window.setFirstOwnerPinFromSetup?.()" class="w-full py-2 text-xs text-amber-400 hover:text-amber-300">🔐 ตั้ง PIN เจ้าของร้านครั้งแรก</button><button onclick="window.lockCurrentAccount()" class="w-full py-2 text-xs text-slate-500 hover:text-slate-300">⚙️ เปลี่ยนการเชื่อมต่อร้าน</button>
+        <button id="first-owner-pin-btn" type="button" onclick="window.setFirstOwnerPinFromSetup?.()" class="w-full py-3 text-xs text-amber-400 hover:text-amber-300 font-bold">🔐 ตั้งค่าฐานข้อมูล + PIN เจ้าของร้านครั้งแรก</button><button type="button" onclick="window.openFirstOwnerSetup?.()" class="w-full py-2 text-xs text-slate-500 hover:text-slate-300">⚙️ เชื่อมต่อ/เปลี่ยนฐานข้อมูลร้าน</button>
       </div>
       <div id="account-login-error" class="min-h-8 mt-4 flex items-center justify-center">
         <p class="text-rose-400 text-sm font-bold hidden" id="account-login-error-text">❌ ชื่อผู้ใช้หรือ PIN ไม่ถูกต้อง</p>
@@ -10863,12 +10863,15 @@ window.logTransaction = async function (action, details = {}, opts = {}) {
     const sel=document.getElementById('login-user-select');
     const userId=sel?.value||'';
     if(!userId){
+      const msg = (!getConfiguredSupabaseUrl() || !getConfiguredSupabaseAnonKey())
+        ? 'กรุณาตั้งค่าฐานข้อมูลร้านก่อน แล้วจึงเลือกผู้ใช้งานและใส่ PIN'
+        : 'กรุณาเลือกผู้ใช้งานก่อนใส่ PIN';
       const err=document.getElementById('account-login-error-text');
       if(err){
-        err.textContent='❌ กรุณาเลือกผู้ใช้งานก่อนใส่ PIN';
+        err.textContent='❌ '+msg;
         err.classList.remove('hidden');
         clearTimeout(window.__posPinErrTimer);
-        window.__posPinErrTimer=setTimeout(()=>err.classList.add('hidden'),2200);
+        window.__posPinErrTimer=setTimeout(()=>err.classList.add('hidden'),2600);
       }
       return;
     }
@@ -10879,27 +10882,28 @@ window.logTransaction = async function (action, details = {}, opts = {}) {
     window.posLoginPinBuffer=pin+d;
     window.updatePosLoginPinDots();
     if(window.posLoginPinBuffer.length===4){
-      // Let the last dot paint before the async RPC starts.
       setTimeout(()=>window.submitPosPinLogin?.(),60);
     }
+  };
+
+  window.openFirstOwnerSetup = function(){
+    const setup=document.getElementById('first-time-setup-screen');
+    const lock=document.getElementById('lock-screen');
+    const fresh=document.getElementById('setup-fresh-fields');
+    const join=document.getElementById('setup-join-fields');
+    if(!setup) return;
+    setup.classList.remove('hidden'); setup.classList.add('flex');
+    if(fresh && join){ fresh.classList.add('hidden'); join.classList.remove('hidden'); }
+    if(lock) lock.style.display='none';
+    document.getElementById('setup-join-url')?.focus();
   };
 
   window.setFirstOwnerPinFromSetup=async function(){
     const url=getConfiguredSupabaseUrl();
     const key=getConfiguredSupabaseAnonKey();
     if(!url||!key){
-      const setup=document.getElementById('first-time-setup-screen');
-      const lock=document.getElementById('lock-screen');
-      if(setup){
-        setup.classList.remove('hidden');
-        setup.classList.add('flex');
-        const fresh=document.getElementById('setup-fresh-fields');
-        const join=document.getElementById('setup-join-fields');
-        // For an already-created local account, show the existing-store connection form.
-        if(fresh&&join){ fresh.classList.add('hidden'); join.classList.remove('hidden'); }
-      }
-      if(lock)lock.style.display='none';
-      return showAlert('ยังไม่ได้เชื่อมต่อ Supabase','กรุณาเชื่อมต่อฐานข้อมูลของร้านก่อน จึงจะสร้าง PIN เจ้าของร้านและเข้า POS ได้',true);
+      window.openFirstOwnerSetup();
+      return showAlert('ยังไม่ได้เชื่อมต่อ Supabase','กรุณากรอก Project URL + anon public key และยืนยันบัญชีเจ้าของร้านก่อน จึงจะสร้าง PIN เจ้าของร้านได้',true);
     }
     const pin=prompt('ตั้ง PIN เจ้าของร้าน 4 หลักใหม่');
     if(!/^[0-9]{4}$/.test(pin||'')) return showAlert('PIN ไม่ถูกต้อง','กรุณาใช้ตัวเลข 4 หลัก',true);
@@ -10927,6 +10931,22 @@ window.logTransaction = async function (action, details = {}, opts = {}) {
       console.warn('[PIN LOGIN]',e);
     }
   };
+  // Hard guard for first-time devices: never leave the user on an empty PIN screen.
+  window.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{
+      const url=getConfiguredSupabaseUrl(), key=getConfiguredSupabaseAnonKey();
+      const sel=$('login-user-select'), lock=$('lock-screen'), setup=$('first-time-setup-screen');
+      if(!url||!key){
+        if(sel) sel.innerHTML='<option value="">ยังไม่ได้เชื่อมต่อ Supabase</option>';
+        window.posLoginPinClear?.();
+        if(setup){ setup.classList.remove('hidden'); setup.classList.add('flex'); }
+        if(lock) lock.style.display='none';
+        const fresh=$('setup-fresh-fields'), join=$('setup-join-fields');
+        if(fresh&&join){ fresh.classList.add('hidden'); join.classList.remove('hidden'); }
+      }
+    },120);
+  });
+
   const loginUserSelect=$('login-user-select');
   if(loginUserSelect) loginUserSelect.addEventListener('change',()=>window.posLoginPinClear());
 
