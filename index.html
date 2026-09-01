@@ -198,6 +198,7 @@
         <button onclick="window.lockPOS()" class="hidden sm:flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-2 rounded-xl text-[10px] font-bold border btn-touch" title="สลับผู้ใช้ / ล็อกหน้าจอ">
           <span id="active-user-badge"></span> 🔒
         </button>
+        <button onclick="window.showView('cash')" id="shift-status-button" class="hidden sm:flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2.5 py-2 rounded-xl text-[10px] font-bold border border-emerald-200 btn-touch" title="เปิด/ปิดกะ และเงินสด">💵 <span id="shift-status-label">เปิดกะ</span></button>
         <button onclick="window.openCartModal()" class="relative bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold btn-touch flex items-center gap-1.5 shadow-md">
           🛒 ตะกร้า <span id="header-cart-count" class="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">0</span>
         </button>
@@ -267,22 +268,18 @@
             </div>
           </div>
 
-          <!-- Quick Search & Interactive Filters -->
-          <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-            <input type="text" id="stock-search-input" oninput="window.renderStockTable()" placeholder="🔍 ค้นชื่อ / SKU / บาร์โค้ด..." class="w-full bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2.5 outline-none font-bold text-slate-700 shadow-xs focus:ring-2 focus:ring-indigo-500">
-
-            <select id="stock-category-filter" onchange="window.renderStockTable()" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2.5 outline-none font-bold text-slate-700 shadow-xs">
-              <option value="ALL">📁 หมวดหมู่ทั้งหมด</option>
-            </select>
-
-            <select id="stock-status-filter" onchange="window.renderStockTable()" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2.5 outline-none font-bold text-slate-700 shadow-xs">
-              <option value="ALL">📊 สถานะสต็อกทั้งหมด</option>
-              <option value="NORMAL">✅ สต็อกปกติ</option>
-              <option value="LOW">⚠️ ใกล้หมด (ต่ำกว่าเกณฑ์)</option>
-              <option value="OUT">❌ หมดสต็อก (0 ชิ้น)</option>
-            </select>
-
+          <!-- Quick Search & Inventory Check Filters -->
+          <div class="grid grid-cols-1 sm:grid-cols-5 gap-2">
+            <input type="text" id="stock-search-input" oninput="window.renderStockTable()" placeholder="🔍 ชื่อ / SKU / บาร์โค้ด..." class="w-full bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2.5 outline-none font-bold text-slate-700 shadow-xs focus:ring-2 focus:ring-indigo-500">
+            <select id="stock-category-filter" onchange="window.renderStockTable()" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2.5 outline-none font-bold text-slate-700 shadow-xs"><option value="ALL">📁 หมวดหมู่ทั้งหมด</option></select>
+            <select id="stock-status-filter" onchange="window.renderStockTable()" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2.5 outline-none font-bold text-slate-700 shadow-xs"><option value="ALL">📊 สถานะสต็อกทั้งหมด</option><option value="NORMAL">✅ ปกติ</option><option value="LOW">⚠️ สต็อกต่ำ</option><option value="OUT">❌ หมด</option></select>
+            <select id="stock-image-filter" onchange="window.renderStockTable()" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2.5 outline-none font-bold text-slate-700 shadow-xs"><option value="ALL">🖼️ รูปทั้งหมด</option><option value="HAS_IMAGE">🖼️ มีรูป</option><option value="NO_IMAGE">⬜ ไม่มีรูป</option></select>
             <button onclick="window.resetStockFilters()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-500 text-xs rounded-xl px-3 py-2.5 font-bold btn-touch">↺ ล้างตัวกรอง</button>
+          </div>
+          <div id="stock-quick-filters" class="flex flex-wrap gap-2 text-[10px]"></div>
+          <div class="flex flex-wrap justify-between items-center gap-2 text-[10px] text-slate-500">
+            <span id="stock-filter-summary" class="font-bold">กำลังโหลดรายการ...</span>
+            <div class="flex items-center gap-2"><label>แสดง</label><select id="stock-page-size" onchange="window.renderStockTable()" class="border rounded-lg px-2 py-1 bg-white font-bold"><option value="50">50</option><option value="100" selected>100</option><option value="250">250</option></select><span>รายการ/หน้า</span></div>
           </div>
 
           <!-- Product Table -->
@@ -306,6 +303,42 @@
               <tbody id="stock-table-body" class="divide-y divide-slate-100 text-slate-800"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- VIEW: SHIFT, CASH DRAWER, INCOME/EXPENSE & MONTHLY SUMMARY -->
+      <section id="view-cash" class="view-content hidden fade-in space-y-4">
+        <div class="flex justify-between items-center">
+          <div><h3 class="text-xl font-extrabold text-slate-800">💵 กะงาน • ลิ้นชักเงิน • รายรับรายจ่าย</h3><p class="text-xs text-slate-400 mt-0.5">เปิดกะ ควบคุมเงินสด บันทึกรายรับ/รายจ่าย และตรวจสรุปรายเดือน</p></div>
+          <button onclick="window.refreshCashDashboard()" class="bg-slate-100 border px-3 py-2 rounded-xl text-xs font-bold btn-touch">↻ อัปเดต</button>
+        </div>
+        <div id="cash-shift-card" class="bg-white p-5 rounded-3xl border shadow-sm"></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="bg-white p-4 rounded-2xl border shadow-sm"><p class="text-[10px] font-bold text-slate-400">เงินสดตามระบบ</p><b id="cash-expected" class="text-xl text-indigo-600">฿0.00</b></div>
+          <div class="bg-white p-4 rounded-2xl border shadow-sm"><p class="text-[10px] font-bold text-slate-400">ยอดขายเงินสดในกะ</p><b id="cash-sales" class="text-xl text-emerald-600">฿0.00</b></div>
+          <div class="bg-white p-4 rounded-2xl border shadow-sm"><p class="text-[10px] font-bold text-slate-400">เงินเข้า / เงินออก</p><b id="cash-flow" class="text-xl text-slate-700">฿0.00 / ฿0.00</b></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-white p-5 rounded-3xl border shadow-sm">
+            <h4 class="font-extrabold text-slate-800 mb-3">➕ บันทึกรายรับ / รายจ่าย</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <select id="ledger-direction" class="border p-2.5 rounded-xl font-bold"><option value="cash_in">💚 เงินรับเข้า</option><option value="cash_out">🔴 เงินจ่ายออก</option></select>
+              <select id="ledger-category" class="border p-2.5 rounded-xl"><option value="ทั่วไป">ทั่วไป</option><option value="ค่าใช้จ่ายร้าน">ค่าใช้จ่ายร้าน</option><option value="ค่าน้ำ/ค่าไฟ">ค่าน้ำ/ค่าไฟ</option><option value="ค่าเดินทาง">ค่าเดินทาง</option><option value="เติมเงินทอน">เติมเงินทอน</option><option value="นำเงินออกจากลิ้นชัก">นำเงินออกจากลิ้นชัก</option></select>
+              <input id="ledger-amount" type="number" step="0.01" min="0" placeholder="จำนวนเงิน" class="border p-2.5 rounded-xl font-bold">
+              <input id="ledger-reason" placeholder="รายละเอียด เช่น ค่ารถส่งของ" class="border p-2.5 rounded-xl">
+            </div>
+            <button onclick="window.addCashLedgerEntry()" class="mt-3 w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs btn-touch">💾 บันทึกรายการ</button>
+            <p class="text-[10px] text-slate-400 mt-2">ยอดขายและรับชำระหนี้จะคำนวณแยกจากบิล/ประวัติรับชำระ เพื่อป้องกันการนับรายรับซ้ำ ส่วนหน้านี้ใช้บันทึกเงินเข้า-ออกที่ไม่ใช่ยอดขาย</p>
+          </div>
+          <div class="bg-white p-5 rounded-3xl border shadow-sm">
+            <div class="flex justify-between items-center mb-3"><h4 class="font-extrabold text-slate-800">📋 รายการเงินล่าสุด</h4><span id="cash-ledger-count" class="text-[10px] text-slate-400"></span></div>
+            <div id="cash-ledger-list" class="space-y-2 max-h-72 overflow-y-auto"></div>
+          </div>
+        </div>
+        <div class="bg-white p-5 rounded-3xl border shadow-sm">
+          <div class="flex flex-col sm:flex-row justify-between gap-3 mb-4"><div><h4 class="font-extrabold text-slate-800">📊 สรุปรายเดือน</h4><p class="text-[10px] text-slate-400">สรุปเพื่อบริหารร้าน ไม่ใช่งบการเงินหรือรายงานภาษีทางการ</p></div><input type="month" id="report-month" onchange="window.renderMonthlyReport()" class="border rounded-xl px-3 py-2 text-xs font-bold"></div>
+          <div id="monthly-report-cards" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+          <div id="monthly-report-detail" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs"></div>
         </div>
       </section>
 
@@ -421,21 +454,6 @@
       </section>
 
       <!-- MODAL: RECEIVE CUSTOMER PAYMENT (รับชำระหนี้) -->
-      <!-- MODAL: FIRST-TIME OWNER BOOTSTRAP (bootstrap_first_owner RPC) -->
-      <div id="modal-bootstrap-owner" class="fixed inset-0 z-[175] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-        <div class="bg-white w-full max-w-sm rounded-[2rem] p-5 shadow-2xl">
-          <h3 class="text-base font-black text-slate-800 mb-1">👑 ตั้งค่าบัญชีเจ้าของร้าน (ครั้งแรก)</h3>
-          <p class="text-[11px] text-slate-400 mb-4 leading-relaxed">
-            ฐานข้อมูลนี้ยังไม่มีเจ้าของร้าน — บัญชีที่ล็อกอินอยู่ตอนนี้จะถูกตั้งเป็น "เจ้าของร้าน" (OWNER)
-            ซึ่งเป็นบัญชีเดียวที่มีสิทธิ์เต็มในการจัดการฐานข้อมูล
-          </p>
-          <input type="text" id="bootstrap-owner-name" placeholder="ชื่อเจ้าของร้าน" class="w-full border p-2.5 rounded-xl text-xs font-bold outline-none mb-2">
-          <input type="text" id="bootstrap-owner-pin" maxlength="4" placeholder="ตั้ง PIN 4 หลักสำหรับเข้าใช้งาน" class="w-full border p-2.5 rounded-xl text-xs font-bold outline-none tracking-widest mb-3">
-          <button onclick="window.confirmBootstrapOwner()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold btn-touch text-xs">✅ ยืนยันตั้งเป็นเจ้าของร้าน</button>
-          <button onclick="window.closeModal('modal-bootstrap-owner')" class="w-full py-2 mt-2 text-slate-400 font-bold text-xs">ข้ามไปก่อน</button>
-        </div>
-      </div>
-
       <div id="modal-receive-payment" class="fixed inset-0 z-[170] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="bg-white w-full max-w-sm rounded-[2rem] p-5 shadow-2xl">
           <div class="flex justify-between items-center border-b pb-3 mb-4">
@@ -445,7 +463,11 @@
           <p class="text-xs text-slate-500 mb-2">ลูกค้า: <b id="rp-customer-name" class="text-slate-800"></b></p>
           <p class="text-xs text-slate-500 mb-3">ยอดหนี้คงค้าง: <b id="rp-customer-debt" class="text-rose-600"></b></p>
           <input type="hidden" id="rp-customer-id">
-          <input type="number" step="0.01" id="rp-amount" placeholder="จำนวนเงินที่รับชำระ" class="w-full border p-3 rounded-xl font-bold text-center mb-3 outline-none">
+          <select id="rp-method" class="w-full border p-3 rounded-xl font-bold mb-3 outline-none">
+            <option value="CASH">💵 รับเป็นเงินสด</option>
+            <option value="TRANSFER">📱 รับเป็นเงินโอน / QR</option>
+          </select>
+          <input type="number" step="0.01" min="0" id="rp-amount" placeholder="จำนวนเงินที่รับชำระ" class="w-full border p-3 rounded-xl font-bold text-center mb-3 outline-none">
           <button onclick="window.confirmReceivePayment()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold btn-touch">✅ บันทึกรับชำระ</button>
         </div>
       </div>
@@ -838,6 +860,10 @@
         <span class="text-2xl">🧾</span>
         <span class="text-[10px] font-extrabold mt-1">ขาย/ลูกหนี้</span>
       </button>
+      <button onclick="window.showView('cash')" class="flex flex-col items-center w-full opacity-40 nav-btn-el btn-touch" data-view="cash">
+        <span class="text-2xl">💵</span>
+        <span class="text-[10px] font-extrabold mt-1">กะ/เงินสด</span>
+      </button>
     </nav>
 
     <!-- Supabase JS Client -->
@@ -1049,7 +1075,7 @@
 
       // Employee management now lives inline in the Settings > USERS tab (see switchSettingsTab)
       // instead of a separate floating modal, matching the other management panels.
-      window.renderUserManagerList = function() {
+      window.__legacy_renderUserManagerList = function() {
         const container = document.getElementById('user-manager-list');
         container.innerHTML = (db.users || []).map(u => `
           <div class="bg-slate-50 p-2.5 rounded-xl border flex justify-between items-center">
@@ -1059,7 +1085,7 @@
         `).join('');
       };
 
-      window.saveUser = function() {
+      window.__legacy_saveUser = function() {
         const name = document.getElementById('user-name-input').value.trim();
         const pin = document.getElementById('user-pin-input').value.trim();
         if (!name || !pin || pin.length !== 4) return window.showAlert("ข้อมูลไม่ถูกต้อง", "กรุณากรอกชื่อและ PIN 4 หลัก", true);
@@ -1072,7 +1098,7 @@
         window.showToast("บันทึกพนักงานเรียบร้อย");
       };
 
-      window.deleteUser = function(id) {
+      window.__legacy_deleteUser = function(id) {
         db.users = db.users.filter(u => u.id !== id);
         window.renderUserManagerList();
         window.showToast("ลบพนักงานสำเร็จ");
@@ -1188,71 +1214,9 @@
           document.getElementById('store-auth-password').value = '';
           window.showToast("เข้าสู่ระบบร้านค้าสำเร็จ");
           await window.refreshAuthStatus();
-          await window.checkAndBootstrapOwner?.();
           window.forceSyncNow?.();
         } catch (err) {
           window.showAlert("เข้าสู่ระบบไม่สำเร็จ", err.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง", true);
-        }
-      };
-
-      // First-time setup: this schema ties OWNER/MANAGER-level database permissions
-      // (is_owner()/is_manager()) to app_users.auth_user_id matching the signed-in Supabase
-      // session — there is no owner account until bootstrap_first_owner() has been called once
-      // for this project. Safe to attempt on every sign-in: the RPC itself refuses (harmlessly)
-      // if an owner already exists, so this only ever prompts when one genuinely doesn't yet.
-      window.checkAndBootstrapOwner = async function() {
-        const client = window.getSupabaseClient();
-        if (!client) return;
-        try {
-          const { data: { session } } = await client.auth.getSession();
-          if (!session?.user) return;
-          const { data: existing } = await client.from('app_users').select('id').eq('auth_user_id', session.user.id).maybeSingle();
-          if (existing) return; // already bootstrapped on a previous sign-in
-
-          document.getElementById('bootstrap-owner-name').value = db.storeName || '';
-          document.getElementById('bootstrap-owner-pin').value = '';
-          document.getElementById('modal-bootstrap-owner').classList.remove('hidden');
-          document.getElementById('modal-bootstrap-owner').classList.add('flex');
-        } catch (e) {
-          // RLS hides app_users entirely from a not-yet-bootstrapped session, so this SELECT
-          // failing/returning nothing is expected and not itself an error worth surfacing.
-        }
-      };
-
-      window.confirmBootstrapOwner = async function() {
-        const client = window.getSupabaseClient();
-        if (!client) return;
-        const name = document.getElementById('bootstrap-owner-name').value.trim();
-        const pin = document.getElementById('bootstrap-owner-pin').value.trim();
-        if (!name) return window.showAlert("ข้อมูลไม่ครบ", "กรุณากรอกชื่อเจ้าของร้าน", true);
-        if (!/^\d{4}$/.test(pin)) return window.showAlert("ข้อมูลไม่ถูกต้อง", "PIN ต้องเป็นตัวเลข 4 หลัก", true);
-        try {
-          const pinHash = await window.hashPin(pin);
-          const { data, error } = await client.rpc('bootstrap_first_owner', { p_name: name, p_pin: pinHash });
-          if (error) throw error;
-
-          // Mirror the new owner into the local PIN roster so the login screen on this device
-          // includes them immediately, without waiting for a separate pull/sync round-trip.
-          db.users = db.users || [];
-          const localOwner = db.users.find(u => u.role === 'OWNER');
-          if (localOwner) {
-            localOwner.name = name;
-            localOwner.pinHash = pinHash;
-          } else {
-            db.users.unshift({ id: 'owner-' + Date.now(), name, role: 'OWNER', permissions: ['ALL'], pinHash });
-          }
-          window.persist?.();
-          window.renderEmployeeLoginScreen?.();
-
-          window.closeModal('modal-bootstrap-owner');
-          window.showToast(`ตั้งค่า "${name}" เป็นเจ้าของร้านสำเร็จ`);
-        } catch (err) {
-          if (String(err.message || '').includes('มี OWNER อยู่แล้ว')) {
-            window.showAlert("มีเจ้าของร้านอยู่แล้ว", "ฐานข้อมูลนี้มีบัญชีเจ้าของร้านตั้งไว้แล้ว ถ้าต้องการสิทธิ์เต็ม กรุณาติดต่อเจ้าของร้านคนเดิม", true);
-            window.closeModal('modal-bootstrap-owner');
-          } else {
-            window.showAlert("ตั้งค่าไม่สำเร็จ", err.message || String(err), true);
-          }
         }
       };
 
@@ -1313,25 +1277,27 @@
             display_order: idx + 1
           }));
           if (categoryRows.length > 0) {
-            const { error: catErr } = await client.from('categories').upsert(categoryRows, { onConflict: 'id' });
-            if (catErr) throw catErr;
+            await upsertInBatches(client, 'categories', categoryRows, { onConflict: 'id' });
           }
 
-          // 2. Products — schema note: price/cost/stock no longer live on `products` at all
-          // (moved entirely onto product_variants below). `products` only holds catalog-level
-          // fields shared across every size/variant of the item.
+          // 2. Products
           const productsList = Object.values(db.products || {});
-          const productRows = productsList.map(p => ({
-            id: toUUID(p.id),
-            sku: p.code || p.id,
-            name: p.name,
-            image_url: p.imageUrl || null,
-            min_stock_alert: roundStock((p.variants && p.variants[0] && p.variants[0].minStock) || 5),
-            is_active: !p.isDeleted
-          }));
+          const productRows = productsList.map(p => {
+            const primaryV = (p.variants && p.variants[0]) || {};
+            return {
+              id: toUUID(p.id),
+              sku: p.code || p.id,
+              name: p.name,
+              price: roundAmt(primaryV.price || 0),
+              cost_price: roundAmt(primaryV.cost || 0),
+              stock_quantity: roundStock(primaryV.stock || 0),
+              min_stock_alert: roundStock(primaryV.minStock || 5),
+              image_url: p.imageUrl || null,
+              is_active: !p.isDeleted
+            };
+          });
           if (productRows.length > 0) {
-            const { error: prodErr } = await client.from('products').upsert(productRows, { onConflict: 'id' });
-            if (prodErr) throw prodErr;
+            await upsertInBatches(client, 'products', productRows, { onConflict: 'id' });
           }
 
           // 3. Product Categories Junction
@@ -1349,11 +1315,10 @@
             });
           });
           if (linkRows.length > 0) {
-            await client.from('product_categories').upsert(linkRows, { onConflict: 'product_id,category_id' });
+            await upsertInBatches(client, 'product_categories', linkRows, { onConflict: 'product_id,category_id' });
           }
 
-          // 4. Product Variants — price/cost_price are direct columns here (no more
-          // override-with-fallback-to-parent semantics from the old schema).
+          // 4. Product Variants
           const variantRows = [];
           productsList.forEach(p => {
             (p.variants || []).forEach(v => {
@@ -1362,93 +1327,64 @@
                 product_id: toUUID(p.id),
                 variant_name: v.sizeName || 'ปกติ',
                 barcode: v.barcode || null,
-                price: roundAmt(v.price),
-                cost_price: roundAmt(v.cost),
+                price_override: roundAmt(v.price),
+                cost_override: roundAmt(v.cost),
                 stock_quantity: roundStock(v.stock),
                 is_active: !p.isDeleted
               });
             });
           });
           if (variantRows.length > 0) {
-            const { error: varErr } = await client.from('product_variants').upsert(variantRows, { onConflict: 'id' });
-            if (varErr) throw varErr;
+            await upsertInBatches(client, 'product_variants', variantRows, { onConflict: 'id' });
           }
 
-          // 5. Product Fractions — keyed off variant_id (not product_id), and the ratio column
-          // is named quantity_ratio: "how many fraction units make up 1 whole stock unit" — e.g.
-          // a fraction sold by the metre out of a 100m roll has quantity_ratio = 100, matching
-          // this schema's create_sale RPC which divides quantity sold by this ratio to find how
-          // much to deduct from stock_quantity. This is the INVERSE of the old schema's
-          // fractionMultiplier (which was "how much of 1 stock unit does 1 fraction unit use"),
-          // so it's converted here rather than passed through directly.
+          // 5. Product Fractions
           const fractionRows = [];
           productsList.forEach(p => {
             (p.variants || []).forEach(v => {
               (v.fractions || []).forEach(f => {
-                const ratio = f.fractionMultiplier > 0 ? roundStock(1 / f.fractionMultiplier) : 1;
                 fractionRows.push({
                   id: toUUID(f.id),
-                  variant_id: toUUID(v.id),
+                  product_id: toUUID(p.id),
                   fraction_name: f.fractionName,
-                  quantity_ratio: ratio,
-                  price: roundAmt(f.fractionPrice),
-                  barcode: f.barcode || null
+                  conversion_factor: roundStock(f.fractionMultiplier),
+                  price: roundAmt(f.fractionPrice)
                 });
               });
             });
           });
           if (fractionRows.length > 0) {
-            const { error: fracErr } = await client.from('product_fractions').upsert(fractionRows, { onConflict: 'id' });
-            if (fracErr) throw fracErr;
+            await upsertInBatches(client, 'product_fractions', fractionRows, { onConflict: 'id' });
           }
 
-          // 6. Customers — this schema has no debt/accounts-receivable column at all (only
-          // credit_limit). Outstanding balance (db.customers[].debt) stays a LOCAL-only figure
-          // this device tracks itself; there is nothing to push it into server-side, so it is
-          // intentionally left out of this upsert rather than silently dropped into a
-          // similarly-named column that doesn't exist.
+          // 6. Customers (previously never synced — credit debt/limits never reached Supabase,
+          // so accounts-receivable reporting and the process_checkout_transaction credit-limit
+          // check always operated on empty/stale customer rows).
           const customerRows = Object.values(db.customers || {}).map(c => ({
             id: toUUID(c.id),
             name: c.name,
             phone: c.phone || null,
-            address: c.address || '',
-            credit_limit: roundAmt(c.creditLimit || 0)
+            debt: roundAmt(c.debt || 0),
+            credit_limit: roundAmt(c.creditLimit || 50000)
           }));
           if (customerRows.length > 0) {
-            const { error: custErr } = await client.from('customers').upsert(customerRows, { onConflict: 'id' });
-            if (custErr) throw custErr;
+            await upsertInBatches(client, 'customers', customerRows, { onConflict: 'id' });
           }
 
-          // 7. Suppliers
-          const supplierRows = Object.entries(db.suppliers || {}).map(([key, s]) => ({
-            id: toUUID(key),
-            name: s.name,
-            phone: s.phone || null,
-            address: s.address || ''
-          }));
-          if (supplierRows.length > 0) {
-            const { error: supErr } = await client.from('suppliers').upsert(supplierRows, { onConflict: 'id' });
-            if (supErr) throw supErr;
-          }
-
-          // 8. app_users — replaces the old separate profiles/employees split. auth_user_id is
-          // deliberately left NULL for PIN-only staff (nullable by design in this schema) —
-          // only the store owner's row needs a real auth_user_id, set once via
-          // window.bootstrapFirstOwner. Only the SHA-256 hash is ever written to `pin`, never
-          // the raw digits.
-          const userRows = (db.users || [])
+          // 7. Employees (PIN-based roster — must exist in Supabase before any bill can
+          // reference cashier_id via the FK). Only the SHA-256 pin_hash is ever sent, never
+          // a plaintext PIN; any legacy unhashed record is skipped rather than pushed insecurely.
+          const employeeRows = (db.users || [])
             .filter(u => u.pinHash)
             .map(u => ({
               id: toUUID(u.id),
               name: u.name,
-              pin: u.pinHash,
+              pin_hash: u.pinHash,
               role: u.role || 'CASHIER',
-              permissions: u.permissions || [],
               is_active: true
             }));
-          if (userRows.length > 0) {
-            const { error: userErr } = await client.from('app_users').upsert(userRows, { onConflict: 'id' });
-            if (userErr) throw userErr;
+          if (employeeRows.length > 0) {
+            await upsertInBatches(client, 'employees', employeeRows, { onConflict: 'id' });
           }
 
           return true;
@@ -1464,69 +1400,83 @@
         if (!client) return false;
 
         try {
-          // 1. Shifts — column names in this schema: opening_cash/closing_cash (not
-          // starting_cash/ending_cash), opened_at/closed_at, status 'OPEN'/'CLOSED' (uppercase).
+          // 1. Shifts
           const shiftRows = (db.shifts || []).map(s => ({
             id: toUUID(s.id),
             opened_at: new Date(s.startTime).toISOString(),
             closed_at: s.endTime ? new Date(s.endTime).toISOString() : null,
-            opening_cash: roundAmt(s.openingCash),
-            closing_cash: s.cashOnHand ? roundAmt(s.cashOnHand) : null,
-            status: s.endTime ? 'CLOSED' : 'OPEN'
+            starting_cash: roundAmt(s.openingCash),
+            ending_cash: s.cashOnHand ? roundAmt(s.cashOnHand) : null,
+            status: s.endTime ? 'closed' : 'open'
           }));
           if (shiftRows.length > 0) {
-            await client.from('shifts').upsert(shiftRows, { onConflict: 'id' });
+            await upsertInBatches(client, 'shifts', shiftRows, { onConflict: 'id' });
           }
 
           // 2. Bills & Bill Items
-          // Skip bills already written by the atomic create_sale RPC (window.syncBillToSupabaseRPC)
-          // — re-inserting them here would collide with the UNIQUE bills.bill_number constraint.
+          // Skip bills already written by the atomic process_checkout_transaction RPC
+          // (window.syncBillToSupabaseRPC) — re-inserting them here would collide with the
+          // UNIQUE bills.bill_number constraint since the RPC generates its own row id.
           const billRows = [];
           const billItemRows = [];
 
           (db.bills || []).filter(b => !b._syncedViaRPC).forEach(b => {
-            // This schema's payment_method has no fixed CHECK list in the DDL, but stays
-            // uppercase to match what create_sale writes for consistency (CASH/TRANSFER/CREDIT).
+            // Fixed: CREDIT sales were being tagged 'transfer' in Supabase (a bill_items/bills
+            // CHECK constraint mismatch against the 'credit' enum value used by the schema and
+            // by process_checkout_transaction's credit-limit logic), which silently broke
+            // accounts-receivable reporting for every credit sale.
+            const methodMap = { CASH: 'cash', TRANSFER: 'qr_promptpay', CREDIT: 'credit' };
             billRows.push({
               id: toUUID(b.id),
               bill_number: b.id,
-              customer_id: (b.customerId && b.customerId !== 'GENERAL') ? toUUID(b.customerId) : null,
-              user_id: b.cashierId ? toUUID(b.cashierId) : null,
               shift_id: db.currentShift ? toUUID(db.currentShift.id) : null,
+              customer_id: (b.customerId && b.customerId !== 'GENERAL') ? toUUID(b.customerId) : null,
+              cashier_id: b.cashierId ? toUUID(b.cashierId) : null,
               subtotal: roundAmt(b.total),
-              discount_amount: 0,
-              tax_amount: 0,
-              total: roundAmt(b.total),
-              payment_method: b.method || 'CASH',
-              status: b.isRefunded ? 'CANCELLED' : 'PAID'
+              total_amount: roundAmt(b.total),
+              received_amount: roundAmt(b.received || b.total),
+              change_amount: roundAmt(b.change || 0),
+              payment_method: methodMap[b.method] || 'cash',
+              status: b.isRefunded ? 'refunded' : 'completed'
             });
 
             (b.items || []).forEach((item, idx) => {
+              const prod = db.products[item.id];
+              const variant = prod?.variants?.find(v => v.id === item.variantId);
               billItemRows.push({
                 id: toUUID(item.id || ('bi-' + b.id + '-' + idx)),
                 bill_id: toUUID(b.id),
                 product_id: item.id ? toUUID(item.id) : null,
                 variant_id: item.variantId ? toUUID(item.variantId) : null,
                 fraction_id: item.fractionId ? toUUID(item.fractionId) : null,
-                item_name: item.name,
-                quantity: roundStock(item.qty),
+                product_name: item.name,
                 unit_price: roundAmt(item.price),
-                line_total: roundAmt(item.qty * item.price)
+                unit_cost: roundAmt(variant?.cost || 0),
+                quantity: roundStock(item.qty),
+                total_price: roundAmt(item.qty * item.price)
               });
             });
           });
 
           if (billRows.length > 0) {
-            await client.from('bills').upsert(billRows, { onConflict: 'id' });
+            await upsertInBatches(client, 'bills', billRows, { onConflict: 'id' });
           }
           if (billItemRows.length > 0) {
-            await client.from('bill_items').upsert(billItemRows, { onConflict: 'id' });
+            await upsertInBatches(client, 'bill_items', billItemRows, { onConflict: 'id' });
           }
 
-          // NOTE: this schema has no cash_ledger / pos_state tables at all (removed compared to
-          // the previous schema this app targeted) — cash-drawer entries (refunds, AR payments
-          // received) and the terminal snapshot stay LOCAL-only now; there's nowhere server-side
-          // to push them into. db.cashLedger is still used and persisted locally as before.
+          // 3. Cash Ledger
+          const ledgerRows = (db.cashLedger || []).filter(tx => ['cash_in','cash_out'].includes(tx.type)).map(tx => ({
+            id: toUUID(tx.id),
+            shift_id: tx.shiftId ? toUUID(tx.shiftId) : (db.currentShift ? toUUID(db.currentShift.id) : null),
+            bill_id: (tx.refId && tx.refId.startsWith('POS-')) ? toUUID(tx.refId) : null,
+            type: tx.type,
+            amount: roundAmt(tx.amount || tx.income || tx.expense || 0),
+            reason: tx.reason || tx.description || tx.category || null
+          }));
+          if (ledgerRows.length > 0) {
+            await upsertInBatches(client, 'cash_ledger', ledgerRows, { onConflict: 'id' });
+          }
 
           return true;
         } catch (err) {
@@ -1536,7 +1486,33 @@
         }
       };
 
-      window.forceSyncNow = async function() {
+      // Customer debt collections are financial transactions, not sales. Keep them in a
+      // dedicated table so cash/transfer collections cannot be confused with new revenue.
+      window.syncCustomerPaymentsToSupabase = async function(isQuiet = false) {
+        const client = window.getSupabaseClient?.();
+        if (!client) return false;
+        const rows = (db.customerPayments || []).map(p => ({
+          id: toUUID(p.id),
+          customer_id: toUUID(p.customerId),
+          shift_id: p.shiftId ? toUUID(p.shiftId) : null,
+          amount: roundAmt(p.amount),
+          payment_method: String(p.method || 'CASH').toLowerCase() === 'transfer' ? 'transfer' : 'cash',
+          received_at: p.receivedAt || new Date().toISOString(),
+          cashier_id: p.cashierId ? toUUID(p.cashierId) : null,
+          note: p.note || null
+        }));
+        if (!rows.length) return true;
+        try {
+          await upsertInBatches(client, 'customer_payments', rows, { onConflict: 'id' });
+          return true;
+        } catch (err) {
+          console.error('Customer payment sync error:', err);
+          if (!isQuiet) window.showAlert?.('ซิงค์รับชำระหนี้ไม่สำเร็จ', err.message || String(err), true);
+          return false;
+        }
+      };
+
+      window.__legacy_forceSyncNow = async function() {
         const client = window.getSupabaseClient();
         if (!client) {
           window.showAlert("ไม่ได้เชื่อมต่อ Supabase", "กรุณากรอก Project URL และ Key ในศูนย์การตั้งค่าก่อน", true);
@@ -1549,10 +1525,33 @@
         try {
           const res1 = await window.syncProductsToSupabase(true);
           const res2 = await window.syncTransactionsToSupabase(true);
+          const res3 = await window.syncCustomerPaymentsToSupabase(true);
+          if (!res1 || !res2 || !res3) throw new Error('มีข้อมูลบางส่วนไม่สามารถบันทึกลง Supabase ได้');
 
-          // NOTE: the previous schema had a `pos_state` table used here as a terminal snapshot;
-          // this schema doesn't define one, so that step is simply gone rather than left in to
-          // fail and wrongly report the whole sync as broken even when products/bills succeeded.
+          // Final verification: never show a false "sync success" when PostgREST/RLS only
+          // accepted part of a large catalog. Count the two tables that define the catalog.
+          const countExact = async (table) => {
+            const { count, error } = await client.from(table).select('*', { count: 'exact', head: true });
+            if (error) throw error;
+            return Number(count || 0);
+          };
+          const [remoteProducts, remoteVariants] = await Promise.all([
+            countExact('products'), countExact('product_variants')
+          ]);
+          const localProducts = Object.values(db.products || {}).filter(p => !p.isDeleted).length;
+          const localVariants = Object.values(db.products || {}).reduce((n,p) => n + (p.variants || []).length, 0);
+          if (remoteProducts < localProducts || remoteVariants < localVariants) {
+            throw new Error(`ซิงค์สินค้าไม่ครบ: ในเครื่อง ${localProducts.toLocaleString()} สินค้า / ${localVariants.toLocaleString()} ตัวเลือก แต่บน Supabase พบ ${remoteProducts.toLocaleString()} / ${remoteVariants.toLocaleString()} — ระบบจะไม่รายงานว่าสำเร็จ`);
+          }
+
+          // Update POS terminal state snapshot
+          const terminalUUID = '00000000-0000-0000-0000-000000000001';
+          await client.from('pos_state').upsert({
+            id: terminalUUID,
+            terminal_name: db.storeName || 'Main Terminal',
+            settings: db,
+            last_synced_at: new Date().toISOString()
+          });
 
           window.updateSupabaseBadge(true);
           window.showToast("ซิงค์ข้อมูลกับ Supabase SQL สำเร็จแล้ว!");
@@ -1947,40 +1946,55 @@
       window.getGoodsReceiptNumber = function() { return getRunningDocNumber('GR', 'lastGRDate', 'dailyGRNum'); };
       window.getPurchaseOrderNumber = function() { return getRunningDocNumber('PO', 'lastPODate', 'dailyPONum'); };
       window.getCreditNoteNumber = function() { return getRunningDocNumber('CN', 'lastCNDate', 'dailyCNNum'); };
-      window.getAutoSku = function() { return getRunningDocNumber('SKU', 'lastSKUDate', 'dailySKUNum'); };
 
       window.processPaymentRequest = function() {
         if (cart.length === 0) return alert("ตะกร้าสินค้าว่างเปล่า");
 
-        const grandTotalStr = document.getElementById('cart-grand-total').innerText.replace('฿', '').replace(',', '');
-        const total = parseFloat(grandTotalStr) || 0;
+        const shift = (typeof activeShift === 'function') ? activeShift() : db.currentShift;
+        if (!shift) {
+          return window.showAlert
+            ? window.showAlert("ยังไม่ได้เปิดกะ", "กรุณาเปิดกะการเงินก่อนรับรายการขาย เพื่อให้ยอดเงินและการตรวจนับลิ้นชักถูกต้อง", true)
+            : alert("กรุณาเปิดกะการเงินก่อนรับรายการขาย");
+        }
+
+        const grandTotalStr = document.getElementById('cart-grand-total').innerText.replace('฿', '').replace(/,/g, '');
+        const total = roundAmt(parseFloat(grandTotalStr) || 0);
         const cid = document.getElementById('pay-customer-select').value;
 
-        if (activePayMethod === 'CREDIT' && cid === 'GENERAL') {
+        if (activePayMethod === 'CREDIT' && (cid === 'GENERAL' || cid === 'walkin')) {
           return alert("กรณีค้างชำระ จำเป็นต้องเลือกชื่อลูกค้าก่อนบันทึก");
         }
 
-        // Credit-limit check — this schema's create_sale RPC does not enforce credit_limit
-        // itself (it only carries the column), so this client-side check is the only
-        // enforcement there is; per the manual's "ตรวจสอบวงเงินเครดิต" description, previously
-        // this wasn't enforced client-side at all either, so bills could exceed a customer's
-        // credit_limit before the background sync
-        // ever reached Supabase).
         if (activePayMethod === 'CREDIT' && db.customers[cid]) {
           const limit = db.customers[cid].creditLimit ?? 50000;
-          if (roundAmt(db.customers[cid].debt + total) > limit) {
+          if (roundAmt((db.customers[cid].debt || 0) + total) > limit) {
             return window.showAlert
               ? window.showAlert("วงเงินเครดิตไม่พอ", `ยอดหนี้รวมจะเกินวงเงินเครดิตที่กำหนดไว้ (${formatMoney(limit)})`, true)
               : alert(`ยอดหนี้รวมจะเกินวงเงินเครดิตที่กำหนดไว้ (${formatMoney(limit)})`);
           }
         }
 
+        let received = total;
+        let change = 0;
+        if (activePayMethod === 'CASH') {
+          received = roundAmt(parseFloat(document.getElementById('pay-cash-received')?.value) || 0);
+          if (received < total) {
+            return window.showAlert
+              ? window.showAlert("รับเงินสดไม่ครบ", `ยอดที่ต้องรับ ${formatMoney(total)} แต่รับมา ${formatMoney(received)}`, true)
+              : alert("จำนวนเงินสดที่รับมาไม่ครบ");
+          }
+          change = roundAmt(received - total);
+        }
+
         const billId = getDailyBillId();
         const bill = {
           id: billId,
           time: Date.now(),
+          shiftId: shift.id,
           items: cart.map(i => ({ ...i })),
-          total: total,
+          total,
+          received,
+          change,
           method: activePayMethod,
           customerId: cid,
           cashierId: db.activeUser?.id || null,
@@ -1989,7 +2003,6 @@
 
         db.bills.push(bill);
 
-        // Deduct Stock
         cart.forEach(item => {
           const p = db.products[item.id];
           if (p) {
@@ -1998,24 +2011,16 @@
           }
         });
 
-        // Handle Credit Debt
         if (activePayMethod === 'CREDIT' && db.customers[cid]) {
-          db.customers[cid].debt = roundAmt(db.customers[cid].debt + total);
+          db.customers[cid].debt = roundAmt((db.customers[cid].debt || 0) + total);
         }
 
-        // Reset — clears cart, discount, cash-received, payment tab, and customer selection
-        // so nothing carries over ("ค้าง") into the next sale.
         window.resetCartState();
         window.closeModal('modal-cart');
-        window.persist?.(); // save the completed sale locally right away (offline-safe)
-        window.showToast("บันทึกการขายสำเร็จ!");
+        window.persist?.();
+        window.showToast(activePayMethod === 'CREDIT' ? "บันทึกการขายเชื่อและเพิ่มลูกหนี้สำเร็จ!" : "บันทึกการขายสำเร็จ!");
         window.renderReceipt(bill);
-
-        // Best-effort authoritative write to Supabase via the atomic RPC (create_sale):
-        // re-checks credit limit, re-deducts stock with row locking, and records unit_cost server-side.
-        // Runs in the background so the cashier flow above never blocks on network; if it's offline or
-        // unconfigured this silently no-ops and the periodic/forced sync (syncTransactionsToSupabase)
-        // remains the offline fallback described in the manual.
+        window.refreshCashDashboard?.();
         window.syncBillToSupabaseRPC?.(bill);
       };
 
@@ -2024,45 +2029,39 @@
         const client = window.getSupabaseClient();
         if (!client) return; // offline / not configured — local state + manual sync remains the fallback
         try {
-          // Ensure the cashier's app_users row exists in Supabase first — bills.user_id has a
-          // foreign-key constraint, and this RPC can fire before the next full
-          // syncProductsToSupabase() batch has ever pushed the staff roster.
+          // Ensure the cashier's employee row exists in Supabase first — process_checkout_transaction's
+          // cashier_id has a foreign-key constraint, and this RPC can fire before the next full
+          // syncProductsToSupabase() batch has ever pushed the employee roster.
           if (bill.cashierId) {
             const u = (db.users || []).find(x => x.id === bill.cashierId);
             if (u?.pinHash) {
-              await client.from('app_users').upsert(
-                [{ id: toUUID(u.id), name: u.name, pin: u.pinHash, role: u.role || 'CASHIER', permissions: u.permissions || [], is_active: true }],
+              await client.from('employees').upsert(
+                [{ id: toUUID(u.id), name: u.name, pin_hash: u.pinHash, role: u.role || 'CASHIER', is_active: true }],
                 { onConflict: 'id' }
               );
             }
           }
 
-          // create_sale computes subtotal/total itself from these line items server-side (it
-          // does NOT take a client-supplied total) — item_name and fraction_id are required
-          // here since the RPC uses fraction_id + product_fractions.quantity_ratio to work out
-          // exactly how much to deduct from the variant's stock_quantity.
           const items = (bill.items || []).map(i => ({
             product_id: i.id ? toUUID(i.id) : null,
             variant_id: i.variantId ? toUUID(i.variantId) : null,
-            fraction_id: i.fractionId ? toUUID(i.fractionId) : null,
-            item_name: i.name,
             quantity: +i.qty || 1,
             unit_price: +i.price || 0
           }));
-
-          const { data, error } = await client.rpc('create_sale', {
-            p_bill_number: bill.id,
+          const paymentMap = { CASH: 'cash', TRANSFER: 'qr_promptpay', CREDIT: 'credit' };
+          const { error } = await client.rpc('process_checkout_transaction', {
+            p_bill_id: bill.id,
             p_customer_id: (bill.customerId && bill.customerId !== 'GENERAL') ? toUUID(bill.customerId) : null,
-            p_user_id: bill.cashierId ? toUUID(bill.cashierId) : null,
-            p_shift_id: db.currentShift ? toUUID(db.currentShift.id) : null,
-            p_discount_amount: 0,
-            p_tax_amount: 0,
-            p_payment_method: bill.method || 'CASH',
-            p_items: items
+            p_payment_method: paymentMap[bill.method] || 'cash',
+            p_subtotal: roundAmt(bill.total),
+            p_discount: 0,
+            p_tax: 0,
+            p_grand_total: roundAmt(bill.total),
+            p_items: items,
+            p_cashier_id: bill.cashierId ? toUUID(bill.cashierId) : null
           });
           if (error) throw error;
           bill._syncedViaRPC = true; // prevent syncTransactionsToSupabase from re-inserting this bill
-          bill._serverBillId = data?.bill_id || null;
           window.updateSupabaseBadge(true);
         } catch (err) {
           // Non-fatal: the bill is already saved locally and will be picked up by the next
@@ -2112,7 +2111,7 @@
       // ==========================================
       // COMPREHENSIVE PRODUCT TABLE RENDER
       // ==========================================
-      window.resetStockFilters = function() {
+      window.__legacy_resetStockFilters = function() {
         document.getElementById('stock-search-input').value = '';
         document.getElementById('stock-category-filter').value = 'ALL';
         document.getElementById('stock-status-filter').value = 'ALL';
@@ -2133,7 +2132,7 @@
         window.renderStockTable();
       };
 
-      window.renderStockTable = function() {
+      window.__legacy_renderStockTable = function() {
         const search = document.getElementById('stock-search-input').value.toLowerCase();
         const catFilter = document.getElementById('stock-category-filter').value;
         const statusFilter = document.getElementById('stock-status-filter').value;
@@ -2467,7 +2466,7 @@
       // Alias: showView() calls this name specifically when opening the po-receive view.
       window.renderPOPicker = window.populatePOPickers;
 
-      window.confirmReceivePO = function() {
+      window.__legacy_confirmReceivePO = function() {
         // Superseded by the atomic version in the Enterprise Management Repair Layer
         // (creates the purchase-order record, sets accounts payable, and syncs stock/cost
         // to Supabase). Kept only as a safety no-op in case that layer fails to load.
@@ -2671,18 +2670,51 @@
         const cid = document.getElementById('rp-customer-id').value;
         const c = db.customers[cid];
         if (!c) return;
-        const amount = roundAmt(parseFloat(document.getElementById('rp-amount').value) || 0);
-        if (amount <= 0) return window.showAlert("จำนวนเงินไม่ถูกต้อง", "กรุณาระบุจำนวนเงินที่รับชำระ", true);
-        if (amount > c.debt) return window.showAlert("จำนวนเงินเกินยอดหนี้", `ยอดหนี้คงเหลือมีเพียง ${formatMoney(c.debt)}`, true);
 
-        c.debt = roundAmt(c.debt - amount);
-        db.cashLedger = db.cashLedger || [];
-        db.cashLedger.push({ id: 'CL-' + Date.now(), type: 'cash-in-ar', income: amount, description: `รับชำระหนี้จาก ${c.name}`, refId: cid, time: Date.now() });
+        const shift = (typeof activeShift === 'function') ? activeShift() : db.currentShift;
+        if (!shift) return window.showAlert("ยังไม่ได้เปิดกะ", "กรุณาเปิดกะก่อนรับชำระหนี้", true);
+
+        const amount = roundAmt(parseFloat(document.getElementById('rp-amount').value) || 0);
+        const method = document.getElementById('rp-method')?.value || 'CASH';
+        if (amount <= 0) return window.showAlert("จำนวนเงินไม่ถูกต้อง", "กรุณาระบุจำนวนเงินที่รับชำระ", true);
+        if (amount > roundAmt(c.debt || 0)) return window.showAlert("จำนวนเงินเกินยอดหนี้", `ยอดหนี้คงเหลือมีเพียง ${formatMoney(c.debt)}`, true);
+
+        const paymentId = 'AR-' + Date.now().toString(36).toUpperCase();
+        c.debt = roundAmt((c.debt || 0) - amount);
+
+        db.customerPayments = db.customerPayments || [];
+        db.customerPayments.push({
+          id: paymentId,
+          customerId: cid,
+          shiftId: shift.id,
+          amount,
+          method,
+          receivedAt: new Date().toISOString(),
+          cashierId: db.activeUser?.id || null,
+          cashierName: db.activeUser?.name || null,
+          note: `รับชำระหนี้จาก ${c.name}`
+        });
+
+        // Only cash collections change the physical drawer. Transfer collections are income,
+        // but must not be added to the cash drawer expected balance.
+        if (method === 'CASH') {
+          db.cashLedger = db.cashLedger || [];
+          db.cashLedger.push({
+            id: 'CL-' + Date.now(), type: 'cash_in', amount,
+            shiftId: shift.id, category: 'รับชำระหนี้',
+            reason: `รับชำระหนี้จาก ${c.name}`, refId: paymentId,
+            createdAt: new Date().toISOString(), userName: db.activeUser?.name || ''
+          });
+        }
 
         window.persist?.();
         window.closeModal('modal-receive-payment');
         window.renderSalesAR();
-        window.showToast(`บันทึกรับชำระหนี้ ${formatMoney(amount)} เรียบร้อย`);
+        window.refreshCashDashboard?.();
+        window.renderMonthlyReport?.();
+        window.syncTransactionsToSupabase?.(true);
+        window.syncCustomerPaymentsToSupabase?.(true);
+        window.showToast(`รับชำระหนี้ ${formatMoney(amount)} (${method === 'CASH' ? 'เงินสด' : 'เงินโอน'}) เรียบร้อย`);
       };
 
       // --- Return / refund workflow ---
@@ -2778,21 +2810,14 @@
       };
 
       // CAMERA SCANNER
-      // Generalized to scan into any target input (defaults to the sale-page search box) —
-      // reused by the product form's barcode field for fast entry instead of typing by hand.
-      window.startCameraScan = function(targetInputId) {
-        window._scanTargetId = targetInputId || 'search-product';
+      window.startCameraScan = function() {
         document.getElementById('modal-camera').classList.remove('hidden');
         document.getElementById('modal-camera').classList.add('flex');
         if (!scanner) scanner = new Html5Qrcode("reader");
         scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => {
           window.stopCameraScan();
-          const targetId = window._scanTargetId || 'search-product';
-          const target = document.getElementById(targetId);
-          if (target) target.value = text;
-          if (targetId === 'search-product') {
-            window.onSearchInput({ target: { value: text } });
-          }
+          document.getElementById('search-product').value = text;
+          window.onSearchInput({ target: { value: text } });
         }).catch(() => window.stopCameraScan());
       };
 
@@ -2835,11 +2860,16 @@
         window.refreshAuthStatus?.();
       });
     </script>
-  
+
 <script>
-/* Smart POS Pro V9.60 SQL Schema Compatibility Bridge */
+/* Smart POS — Consolidated Runtime v11
+ * Single enhancement runtime. Public business operations are defined once.
+ * No oldFunction wrappers / patch-on-patch chaining.
+ */
 (function(){
-  const SB_TABLES=['categories','products','product_categories','product_variants','product_fractions','customers','shifts','bills','bill_items','cash_ledger'];
+/* Smart POS Fixed Edition v9 • Batch Sync + Accounting Fixes • SQL Schema Compatibility Bridge */
+(function(){
+  const SB_TABLES=['categories','products','product_categories','product_variants','product_fractions','customers','employees','shifts','bills','bill_items','cash_ledger','customer_payments'];
   window.SQL_SCHEMA_VERSION='Smart_POS_Pro_Enterprise_Full_Database_Schema';
 
   // Compatibility fallbacks for missing functions in the original page.
@@ -2875,10 +2905,34 @@
   };
 
   function sb(){ return window.getSupabase ? window.getSupabase() : null; }
-  async function q(table, fn){
+  // Supabase/PostgREST may cap a single response at 1,000 rows.  Always pull in pages
+  // so a catalog of 2,117 (or 10,000+) products is never silently truncated.
+  const SB_PULL_PAGE_SIZE=500;
+  const SB_WRITE_BATCH_SIZE=250;
+  async function upsertInBatches(client, table, rows, options={}){
+    if(!client || !rows || !rows.length) return;
+    for(let i=0;i<rows.length;i+=SB_WRITE_BATCH_SIZE){
+      const batch=rows.slice(i,i+SB_WRITE_BATCH_SIZE);
+      const {error}=await client.from(table).upsert(batch, options);
+      if(error) throw new Error(`${table} batch ${Math.floor(i/SB_WRITE_BATCH_SIZE)+1} failed: ${error.message||error}`);
+    }
+  }
+  async function qAll(table, fn, pageSize=SB_PULL_PAGE_SIZE){
     const c=sb(); if(!c) return null;
-    const r=fn(c.from(table)); if(r && typeof r.then==='function'){ const {data,error}=await r; if(error) throw error; return data; }
-    return r;
+    const all=[];
+    let from=0;
+    while(true){
+      const builder=fn(c.from(table));
+      const {data,error}=await builder.range(from,from+pageSize-1);
+      if(error) throw error;
+      const rows=data||[];
+      all.push(...rows);
+      if(rows.length<pageSize) break;
+      from+=rows.length;
+      // Safety guard against a malformed server response that keeps returning the same full page.
+      if(from>500000) throw new Error(`Pagination safety limit reached while pulling ${table}`);
+    }
+    return all;
   }
   // BUG FIX: this used to run automatically on every page load (50ms after DOMContentLoaded)
   // and would silently wipe out db.products with whatever Supabase returned — including an
@@ -2895,14 +2949,17 @@
     // — e.g. a bad embedded-relationship query — doesn't block every other table from loading,
     // and so the failure message can name exactly which table/column broke instead of a
     // generic "pull failed" with no way to diagnose it.
+    // IMPORTANT: every potentially-large table uses qAll(), not a single select().
+    // A stable secondary order prevents rows from being skipped/duplicated between pages.
     const queries={
-      categories:q('categories',x=>x.select('*').order('display_order')),
-      products:q('products',x=>x.select('*').order('name')),
-      product_categories:q('product_categories',x=>x.select('*')),
-      product_variants:q('product_variants',x=>x.select('*')),
-      product_fractions:q('product_fractions',x=>x.select('*')),
-      customers:q('customers',x=>x.select('*').order('name')),
-      bills:q('bills',x=>x.select('*, bill_items(*)').order('created_at',{ascending:false}).limit(200))
+      categories:qAll('categories',x=>x.select('*').order('display_order').order('id')),
+      products:qAll('products',x=>x.select('*').order('name').order('id')),
+      product_categories:qAll('product_categories',x=>x.select('*').order('product_id').order('category_id')),
+      product_variants:qAll('product_variants',x=>x.select('*').order('product_id').order('id')),
+      product_fractions:qAll('product_fractions',x=>x.select('*').order('product_id').order('id')),
+      customers:qAll('customers',x=>x.select('*').order('name').order('id')),
+      customer_payments:qAll('customer_payments',x=>x.select('*').order('received_at',{ascending:false}).order('id',{ascending:false})),
+      bills:qAll('bills',x=>x.select('*, bill_items(*)').order('created_at',{ascending:false}).order('id',{ascending:false}))
     };
     const keys=Object.keys(queries);
     const settled=await Promise.allSettled(Object.values(queries));
@@ -2919,7 +2976,7 @@
       return false;
     }
     try{
-      const {categories:cats,products:prods,product_categories:links,product_variants:vars,product_fractions:fracs,customers:custs,bills}=results;
+      const {categories:cats,products:prods,product_categories:links,product_variants:vars,product_fractions:fracs,customers:custs,customer_payments:remotePayments,bills}=results;
       window.db=window.db||{};
 
       // Categories — add any remote category not already present locally by name; never
@@ -2936,15 +2993,10 @@
       const catById=Object.fromEntries((cats||[]).map(x=>[x.id,x.name]));
       const catsByProduct={}; (links||[]).forEach(l=>(catsByProduct[l.product_id]=catsByProduct[l.product_id]||[]).push(catById[l.category_id]||l.category_id));
 
-      // product_fractions are keyed by variant_id in this schema (not product_id), and
-      // quantity_ratio means "how many fraction units make up 1 whole stock unit" — the
-      // INVERSE of the local fractionMultiplier field ("how much of 1 stock unit does 1
-      // fraction unit use"), so it's converted back on the way in (1 / quantity_ratio).
-      const fracsByVariant={}; (fracs||[]).forEach(f=>(fracsByVariant[f.variant_id]=fracsByVariant[f.variant_id]||[]).push(f));
-
-      // product_variants columns here are variant_name / price / cost_price — direct values,
-      // no override-with-parent-fallback (this schema's `products` table has no price/cost
-      // columns of its own at all, unlike the previous schema this app used to target).
+      // BUG FIX: product_variants columns are variant_name / price_override / cost_override
+      // (overrides fall back to the parent product's own price/cost_price when null) — this
+      // used to read v.name / v.price / v.cost_price, none of which exist on that table, so
+      // every pulled variant silently came through with a blank size name and ฿0 cost/price.
       const rawVarsByProduct={}; (vars||[]).forEach(v=>(rawVarsByProduct[v.product_id]=rawVarsByProduct[v.product_id]||[]).push(v));
 
       // Products — match an existing local product by SKU (the one field that's stable across
@@ -2969,27 +3021,20 @@
           matchedProd++;
         }else if(!existingId){
           const remoteVariants=(rawVarsByProduct[p.id]||[]).map(v=>({
-            id:v.id,sizeName:v.variant_name||'ปกติ',barcode:v.barcode||'',
-            cost:+(v.cost_price||0),price:+(v.price||0),stock:+(v.stock_quantity||0),
-            fractions:(fracsByVariant[v.id]||[]).map(f=>({
-              id:f.id,fractionName:f.fraction_name,
-              fractionMultiplier:f.quantity_ratio>0?roundStock(1/f.quantity_ratio):1,
-              fractionPrice:+(f.price||0),barcode:f.barcode||''
-            }))
+            id:v.id,sizeName:v.variant_name||v.sku||'ปกติ',barcode:v.barcode||'',
+            cost:+(v.cost_override??p.cost_price??0),price:+(v.price_override??p.price??0),stock:+(v.stock_quantity||0)
           }));
           db.products[p.id]={
             id:p.id,name:p.name,code:sku,cat:catsByProduct[p.id]||[],image:p.image_url||'📦',
             minStock:+(p.min_stock_alert||0),
-            variants:remoteVariants.length?remoteVariants:[{id:null,sizeName:'ปกติ',barcode:'',cost:0,price:0,stock:0,fractions:[]}]
+            variants:remoteVariants.length?remoteVariants:[{id:null,sizeName:'ปกติ',barcode:p.barcode||'',cost:+(p.cost_price||0),price:+(p.price||0),stock:+(p.stock_quantity||0)}]
           };
           addedProd++;
         }
       });
 
-      // Customers — match by phone (or name if no phone on either side). This schema has no
-      // debt/accounts-receivable column, so a pulled-in new customer starts at debt:0 — an
-      // existing local record's tracked debt is never touched (there's nothing server-side to
-      // reconcile it against anyway).
+      // Customers — match by phone (or name if no phone on either side) so local debt tracked
+      // since the last sync isn't clobbered by a possibly-stale remote snapshot.
       db.customers=db.customers||{};
       const localIdByPhone={}, localIdByName={};
       Object.values(db.customers).forEach(cu=>{ if(cu.phone)localIdByPhone[cu.phone]=cu.id; localIdByName[cu.name]=cu.id; });
@@ -2997,10 +3042,23 @@
       (custs||[]).forEach(cu=>{
         const existingId=(cu.phone&&localIdByPhone[cu.phone])||localIdByName[cu.name];
         if(!existingId){
-          db.customers[cu.id]={id:cu.id,name:cu.name,phone:cu.phone||'',address:cu.address||'',debt:0,creditLimit:+(cu.credit_limit||0)};
+          db.customers[cu.id]={id:cu.id,name:cu.name,phone:cu.phone||'',debt:+(cu.debt||0),creditLimit:+(cu.credit_limit||50000)};
           addedCust++;
         }
         // else: a local record already tracks this customer — leave their local debt as-is.
+      });
+
+      // Customer payments — additive only. These are collections against existing debt,
+      // not new sales revenue.
+      db.customerPayments=db.customerPayments||[];
+      const localPaymentIds=new Set(db.customerPayments.map(x=>x.id));
+      (remotePayments||[]).forEach(r=>{
+        if(localPaymentIds.has(r.id)) return;
+        db.customerPayments.push({
+          id:r.id, customerId:r.customer_id, shiftId:r.shift_id||null,
+          amount:+(r.amount||0), method:String(r.payment_method||'cash').toUpperCase(),
+          receivedAt:r.received_at||null, cashierId:r.cashier_id||null, note:r.note||''
+        });
       });
 
       // Bills — additive only. Never overwrite or remove a local bill; only pull in remote
@@ -3012,19 +3070,20 @@
       (bills||[]).forEach(b=>{
         if(!localBillIds.has(b.bill_number)){
           db.bills.push({
-            id:b.bill_number,time:new Date(b.created_at).getTime(),total:+b.total,
-            method:(b.payment_method||'CASH').toUpperCase(),customerId:b.customer_id||'GENERAL',
-            isRefunded:b.status==='CANCELLED',
-            items:(b.bill_items||[]).map(bi=>({id:bi.product_id,variantId:bi.variant_id,fractionId:bi.fraction_id,name:bi.item_name,price:+bi.unit_price,qty:+bi.quantity}))
+            id:b.bill_number,time:new Date(b.created_at).getTime(),total:+b.total_amount,
+            method:(b.payment_method||'cash').toUpperCase(),customerId:b.customer_id||'GENERAL',
+            isRefunded:b.status==='refunded',
+            items:(b.bill_items||[]).map(bi=>({id:bi.product_id,variantId:bi.variant_id,name:bi.product_name,price:+bi.unit_price,qty:+bi.quantity}))
           });
           addedBills++;
         }
       });
 
+      db.fractions=fracs||[];
       persist();
       window.renderSaleHome?.(); window.renderStockTable?.(); window.renderSalesAR?.();
       window.populateCustomerSelect?.(); window.populatePOPickers?.();
-      const summary=`หมวดหมู่ใหม่ ${newCats} • สินค้าใหม่ ${addedProd} (จับคู่ของเดิม ${matchedProd}) • ลูกค้าใหม่ ${addedCust} • บิลที่ดึงเพิ่ม ${addedBills}`;
+      const summary=`ดึงจากคลาวด์ทั้งหมด: สินค้า ${(prods||[]).length} รายการ • Variant ${(vars||[]).length} รายการ\nหมวดหมู่ใหม่ ${newCats} • สินค้าใหม่ ${addedProd} (จับคู่ของเดิม ${matchedProd}) • ลูกค้าใหม่ ${addedCust} • บิลที่ดึงเพิ่ม ${addedBills}`;
       if(failures.length){
         console.warn('loadDatabaseState: partial failure on', failures);
         window.showAlert?.('ดึงข้อมูลสำเร็จบางส่วน',`${summary}\n\n⚠️ ตารางต่อไปนี้ดึงไม่สำเร็จ: ${failures.join(' | ')}`,true);
@@ -3047,115 +3106,33 @@
   // below silently no-op'd. Reuse the real client so the RPC path actually connects.
   window.getSupabase = window.getSupabaseClient;
 
-  // NOTE: this used to also carry window.calculateCartViaDBServer / window.processDatabaseCheckout
-  // — a second, disconnected "database-authoritative checkout" path from an earlier iteration
-  // of this app. It was never wired to any button (window.processPaymentRequest + the
-  // window.syncBillToSupabaseRPC → create_sale RPC pairing is the real, active checkout path),
-  // and it called calculate_order_totals / process_checkout_transaction, neither of which exist
-  // in this schema (superseded by create_sale, which computes totals server-side from the line
-  // items itself). Removed rather than updated, since dead code referencing functions that no
-  // longer exist is worse than no code at all.
+  window.calculateCartViaDBServer=async function(){
+    const cart=window.cart||[]; const discountValue=parseFloat(document.getElementById('cart-discount-input')?.value)||0;
+    const discountType=document.getElementById('cart-discount-type')?.value||'BAHT';
+    const items=cart.map(i=>({product_id:i.productId||i.id,variant_id:i.variantId||null,quantity:+i.qty||1,unit_price:+i.price||0}));
+    let out={subtotal:items.reduce((s,i)=>s+i.quantity*i.unit_price,0),discount_amount:0,tax_amount:0,grand_total:0};
+    const c=sb();
+    if(c){ const {data,error}=await c.rpc('calculate_order_totals',{p_items:items,p_discount_value:discountValue,p_discount_type:discountType}); if(!error&&data) out=data; }
+    if(!out.grand_total){out.discount_amount=discountType==='PERCENT'?out.subtotal*discountValue/100:Math.min(discountValue,out.subtotal);out.tax_amount=(out.subtotal-out.discount_amount)*.07;out.grand_total=out.subtotal-out.discount_amount+out.tax_amount;}
+    const set=(id,v,p='฿')=>{const e=document.getElementById(id);if(e)e.textContent=p+Number(v||0).toFixed(2)};
+    set('db-calc-subtotal',out.subtotal);set('db-calc-discount',out.discount_amount,'-฿');set('db-calc-tax',out.tax_amount);set('db-calc-grand',out.grand_total);
+    return out;
+  };
+
+  window.processDatabaseCheckout=async function(){
+    const c=sb(); if(!c){ alert('กรุณาตั้งค่า Supabase ก่อนชำระเงิน'); return; }
+    const totals=await window.calculateCartViaDBServer(); const customer=document.getElementById('pay-customer-select')?.value;
+    const cart=window.cart||[]; const billNo='POS-'+Date.now();
+    const items=cart.map(i=>({product_id:i.productId||i.id,variant_id:i.variantId||null,quantity:+i.qty||1,unit_price:+i.price||0}));
+    const {error}=await c.rpc('process_checkout_transaction',{p_bill_id:billNo,p_customer_id:(customer&&customer!=='GENERAL')?customer:null,p_payment_method:window.activePayMethod||'cash',p_subtotal:totals.subtotal,p_discount:totals.discount_amount,p_tax:totals.tax_amount,p_grand_total:totals.grand_total,p_items:items});
+    if(error){ alert('บันทึกการขายไม่สำเร็จ: '+error.message); return; }
+    window.cart=[]; window.updateCartUI?.(); window.closeModal?.('modal-cart'); await window.loadDatabaseState(true); alert('ชำระเงินสำเร็จ: '+billNo);
+  };
 
   // Cloud pull is now explicit only (see window.confirmPullFromCloud, wired to the Settings
   // button) — no longer runs automatically on page load. See the note above loadDatabaseState.
 })();
-</script>
 
-
-<div id="modal-product-manager" class="fixed inset-0 z-[180] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 hidden cart-backdrop-fade">
-<div class="cart-modal-pop bg-white w-full max-w-2xl rounded-[2rem] p-5 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
-  <div class="flex justify-between items-center border-b pb-3 mb-4">
-    <h3 id="product-modal-title" class="text-lg font-black text-slate-800 flex items-center gap-2">
-      <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-sm shadow-md">📦</span>
-      เพิ่มสินค้า
-    </h3>
-    <button onclick="window.closeModal('modal-product-manager')" class="w-8 h-8 flex items-center justify-center text-slate-400 font-bold hover:text-rose-500 hover:bg-rose-50 rounded-full text-lg btn-touch">✕</button>
-  </div>
-  <input type="hidden" id="product-edit-id">
-
-  <!-- "ทำซ้ำจากสินค้าเดิม" — only shown when adding a NEW product. Fast-starts the form from an
-       existing item's category/photo/sizes instead of typing everything from scratch, which
-       helps a lot for shops with many similar variants (e.g. the same pipe brand in different
-       diameters). -->
-  <div id="pm-duplicate-wrap" class="relative mb-3">
-    <button type="button" onclick="window.openDuplicateProductPicker()" class="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold btn-touch border border-indigo-100">
-      📋 คัดลอกจากสินค้าเดิม (เริ่มเร็วขึ้นสำหรับสินค้าที่คล้ายกัน)
-    </button>
-    <input type="text" id="pm-duplicate-search" placeholder="🔍 ค้นชื่อ / SKU สินค้าที่จะคัดลอก..." autocomplete="off"
-      oninput="window.filterDuplicateProductPicker()" class="hidden w-full bg-slate-50 border p-2.5 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">
-    <div id="pm-duplicate-results" class="hidden absolute z-20 top-full left-0 right-0 bg-white border rounded-xl shadow-xl mt-1 max-h-72 overflow-y-auto"></div>
-  </div>
-
-  <div class="flex gap-4 mb-4">
-    <div class="flex-shrink-0">
-      <label class="block w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50 cursor-pointer overflow-hidden relative btn-touch transition-colors">
-        <img id="pm-photo-preview" class="hidden w-full h-full object-cover">
-        <div id="pm-photo-placeholder" class="w-full h-full flex flex-col items-center justify-center text-slate-400 text-[10px] font-bold gap-1">
-          <span class="text-2xl">📷</span><span>รูป/ไอคอน</span>
-        </div>
-        <input type="file" id="pm-photo-input" accept="image/*" capture="environment" class="hidden" onchange="window.handleProductPhotoSelect(event)">
-      </label>
-      <input id="pm-image" placeholder="หรือพิมพ์ Emoji" class="w-24 mt-1.5 border p-1.5 rounded-lg text-center text-xs outline-none" oninput="window.updateProductEmojiPreview()">
-    </div>
-    <div class="flex-1 grid grid-cols-1 gap-2 text-xs">
-      <input id="pm-name" placeholder="ชื่อสินค้า *" class="border p-3 rounded-xl font-bold outline-none focus:ring-2 focus:ring-emerald-500">
-      <div class="grid grid-cols-2 gap-2">
-        <input id="pm-sku" placeholder="SKU (เว้นว่าง = รันอัตโนมัติ)" class="border p-3 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500">
-        <select id="pm-category" class="border p-3 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"></select>
-      </div>
-    </div>
-  </div>
-
-  <!-- Variants (sizes) — a product can now have multiple sizes/models added here in one go,
-       instead of being locked to exactly one via the old single-row form. -->
-  <div class="border-t pt-3">
-    <h4 class="text-xs font-bold text-slate-500 mb-2">📏 ขนาด/รุ่นสินค้า (เพิ่มได้หลายขนาด)</h4>
-    <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5 mb-2 text-xs">
-      <input id="pmv-name" placeholder="ชื่อขนาด/รุ่น" class="sm:col-span-2 border p-2.5 rounded-xl outline-none">
-      <div class="sm:col-span-2 relative flex gap-1">
-        <input id="pmv-barcode" placeholder="บาร์โค้ด" class="flex-1 min-w-0 border p-2.5 rounded-xl outline-none">
-        <button type="button" onclick="window.startCameraScan('pmv-barcode')" title="สแกนบาร์โค้ด" class="flex-shrink-0 w-9 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 btn-touch">📷</button>
-      </div>
-      <input id="pmv-cost" type="number" step="0.01" placeholder="ราคาทุน" class="border p-2.5 rounded-xl outline-none">
-      <input id="pmv-price" type="number" step="0.01" placeholder="ราคาขาย" class="border p-2.5 rounded-xl outline-none">
-      <input id="pmv-stock" type="number" step="0.01" placeholder="สต็อกเริ่มต้น" class="border p-2.5 rounded-xl outline-none">
-    </div>
-    <button type="button" onclick="window.addProductVariantRow()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs btn-touch mb-3">+ เพิ่มขนาดนี้เข้ารายการ</button>
-    <div id="pm-variant-list" class="space-y-2"></div>
-  </div>
-
-  <div class="flex gap-2 mt-5">
-    <button onclick="window.closeModal('modal-product-manager')" class="flex-1 py-3 rounded-xl bg-slate-100 font-bold btn-touch">ยกเลิก</button>
-    <button onclick="window.saveProduct()" class="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold btn-touch shadow-lg">💾 บันทึกสินค้า</button>
-  </div>
-</div></div>
-
-<!-- Small popover for adding a "แบ่งขาย" (split-sale) unit to a specific variant row -->
-<div id="modal-add-fraction" class="fixed inset-0 z-[190] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-  <div class="bg-white w-full max-w-xs rounded-[1.5rem] p-5 shadow-2xl">
-    <h3 class="text-sm font-black text-slate-800 mb-1">✂️ เพิ่มหน่วยแบ่งขาย</h3>
-    <p class="text-[10px] text-slate-400 mb-3">เช่น ท่อยกเส้นแบ่งขายเป็นเมตร หรือสายไฟม้วนตัดขายเมตรละ</p>
-    <input type="hidden" id="frac-variant-idx">
-    <input id="frac-name" placeholder="ชื่อหน่วยแบ่งขาย เช่น ตัดขาย 1 เมตร" class="w-full border p-2.5 rounded-xl text-xs font-bold outline-none mb-2">
-    <div class="grid grid-cols-2 gap-2 mb-3">
-      <div>
-        <label class="text-[10px] text-slate-400 block mb-0.5">กี่หน่วยย่อย = 1 หน่วยหลัก</label>
-        <input id="frac-ratio" type="number" step="0.01" placeholder="เช่น 100" class="w-full border p-2.5 rounded-xl text-xs font-bold outline-none">
-      </div>
-      <div>
-        <label class="text-[10px] text-slate-400 block mb-0.5">ราคาต่อหน่วยย่อย</label>
-        <input id="frac-price" type="number" step="0.01" placeholder="บาท" class="w-full border p-2.5 rounded-xl text-xs font-bold outline-none">
-      </div>
-    </div>
-    <div class="flex gap-2">
-      <button onclick="window.closeModal('modal-add-fraction')" class="flex-1 py-2.5 bg-slate-100 rounded-xl font-bold text-xs btn-touch">ยกเลิก</button>
-      <button onclick="window.confirmAddFraction()" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs btn-touch">✅ เพิ่ม</button>
-    </div>
-  </div>
-</div>
-
-
-<script>
 /* Enterprise Management Repair Layer */
 (function(){
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -3190,7 +3167,7 @@ window.editUser=id=>{const u=db.users.find(x=>x.id===id);if(!u)return;document.g
 // BUG FIX (security): PINs were stored and would have been synced to Supabase as plaintext —
 // anyone with the anon key could read every employee's PIN straight out of the database.
 // Now only a SHA-256 hash (window.hashPin) is ever stored in db.users[].pinHash / sent as
-// app_users.pin; the raw digits never leave the input field.
+// profiles-equivalent (employees) pin_hash; the raw digits never leave the input field.
 window.saveUser=async function(){if(!ok('ALL'))return;ensure();const id=document.getElementById('edit-user-id').value,n=document.getElementById('user-name-input').value.trim(),pin=document.getElementById('user-pin-input').value.trim(),role=document.getElementById('user-role-input')?.value||'CASHIER';if(!n)return window.showAlert?.('ข้อมูลไม่ถูกต้อง','กรุณากรอกชื่อพนักงาน',true);if(pin&&!/^\d{4}$/.test(pin))return window.showAlert?.('ข้อมูลไม่ถูกต้อง','PIN ต้องเป็นตัวเลข 4 หลัก',true);if(id){const u=db.users.find(x=>x.id===id);if(u.role==='OWNER'&&role!=='OWNER')return window.showAlert?.('ไม่อนุญาต','ไม่สามารถลดสิทธิ์เจ้าของร้านได้',true);const upd={name:n,role,permissions:rolePerm(role)};if(pin)upd.pinHash=await window.hashPin(pin);delete u.pin;Object.assign(u,upd);}else{if(!pin)return window.showAlert?.('ข้อมูลไม่ถูกต้อง','กรุณากำหนด PIN 4 หลักให้พนักงานใหม่',true);db.users.push({id:'u-'+Date.now(),name:n,role,permissions:rolePerm(role),pinHash:await window.hashPin(pin)});}persist();window.renderUserManagerList();window.renderEmployeeLoginScreen?.();};
 window.deleteUser=id=>{if(!ok('ALL'))return;const u=db.users.find(x=>x.id===id);if(!u||u.role==='OWNER')return window.showAlert?.('ไม่อนุญาต','ไม่สามารถลบเจ้าของร้านได้',true);db.users=db.users.filter(x=>x.id!==id);persist();window.renderUserManagerList();window.renderEmployeeLoginScreen?.();};
 
@@ -3295,335 +3272,9 @@ window.resetIdleTimer=function(){
 
 document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.renderEmployeeLoginScreen?.(),0);});
 
-// ==========================================
-// PRODUCT FORM — modernized: photo capture, barcode scan-to-field, multiple sizes/variants
-// per product added in one form, and split-sale ("แบ่งขาย") units manageable per variant.
-// BUG FIX: the old single-variant form always saved `variants:[{...one row...}]` — editing an
-// existing product that had more than one size (e.g. pulled in from Supabase) silently
-// DISCARDED every size but the first the moment it was saved. Now every existing variant loads
-// into the editable list and is preserved.
-// ==========================================
-let pmVariants = [];
-let pmPhotoDataUrl = null;
-let pmPhotoChanged = false;
-
-window.handleProductPhotoSelect = function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    const img = new Image();
-    img.onload = function() {
-      const maxDim = 800;
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        const scale = maxDim / Math.max(width, height);
-        width = Math.round(width * scale); height = Math.round(height * scale);
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      pmPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-      pmPhotoChanged = true;
-      document.getElementById('pm-photo-preview').src = pmPhotoDataUrl;
-      document.getElementById('pm-photo-preview').classList.remove('hidden');
-      document.getElementById('pm-photo-placeholder').classList.add('hidden');
-      document.getElementById('pm-image').value = ''; // photo takes priority over emoji
-    };
-    img.src = evt.target.result;
-  };
-  reader.readAsDataURL(file);
-};
-
-// Typing an emoji cancels any selected photo, so it's always clear which one will be used.
-window.updateProductEmojiPreview = function() {
-  if (document.getElementById('pm-image').value.trim()) {
-    pmPhotoDataUrl = null; pmPhotoChanged = true;
-    document.getElementById('pm-photo-preview').classList.add('hidden');
-    document.getElementById('pm-photo-placeholder').classList.remove('hidden');
-  }
-};
-
-window.addProductVariantRow = function() {
-  const name = document.getElementById('pmv-name').value.trim();
-  const barcode = document.getElementById('pmv-barcode').value.trim();
-  const cost = parseFloat(document.getElementById('pmv-cost').value) || 0;
-  const price = parseFloat(document.getElementById('pmv-price').value) || 0;
-  const stock = parseFloat(document.getElementById('pmv-stock').value) || 0;
-  if (!name || price <= 0) return window.showAlert?.('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อขนาด/รุ่น และราคาขายให้ถูกต้อง', true);
-
-  pmVariants.push({ id: 'v-' + Date.now() + Math.random().toString(36).slice(2, 5), sizeName: name, barcode, cost, price, stock, minStock: 5, fractions: [] });
-  ['pmv-name', 'pmv-barcode', 'pmv-cost', 'pmv-price', 'pmv-stock'].forEach(id => document.getElementById(id).value = '');
-  window.renderProductVariantList();
-};
-
-window.renderProductVariantList = function() {
-  const container = document.getElementById('pm-variant-list');
-  container.innerHTML = pmVariants.length ? pmVariants.map((v, idx) => `
-    <div class="bg-slate-50 p-2.5 rounded-xl border text-xs">
-      <div class="flex items-center gap-2">
-        <div class="flex-1 min-w-0">
-          <b class="text-slate-800 block truncate">${escapeHTML(v.sizeName)}</b>
-          <span class="text-[10px] text-slate-400">${v.barcode ? 'บาร์โค้ด ' + escapeHTML(v.barcode) : 'ไม่มีบาร์โค้ด'}</span>
-        </div>
-        <button onclick="window.removePMVariant(${idx})" class="text-rose-500 font-bold hover:bg-rose-50 rounded-lg w-6 h-6 flex items-center justify-center btn-touch">✕</button>
-      </div>
-      <div class="flex items-center gap-1.5 mt-1.5">
-        <span class="text-slate-400 text-[10px]">ทุน</span>
-        <input type="number" step="0.01" value="${v.cost}" oninput="window.updatePMVariantField(${idx},'cost',this.value)" class="w-16 border rounded-lg text-center py-1 outline-none">
-        <span class="text-slate-400 text-[10px]">ขาย</span>
-        <input type="number" step="0.01" value="${v.price}" oninput="window.updatePMVariantField(${idx},'price',this.value)" class="w-16 border rounded-lg text-center py-1 font-bold outline-none">
-        <span class="text-slate-400 text-[10px]">สต็อก</span>
-        <input type="number" step="0.01" value="${v.stock}" oninput="window.updatePMVariantField(${idx},'stock',this.value)" class="w-16 border rounded-lg text-center py-1 outline-none">
-        <button onclick="window.openAddFractionModal(${idx})" title="เพิ่มหน่วยแบ่งขาย" class="ml-auto flex-shrink-0 w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center btn-touch">✂️</button>
-      </div>
-      ${(v.fractions || []).length ? `<div class="flex flex-wrap gap-1 mt-1.5">${v.fractions.map((f, fi) => `
-        <span class="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-2 py-0.5 text-[10px] font-bold">
-          ✂️ ${escapeHTML(f.fractionName)} ฿${f.fractionPrice}
-          <button onclick="window.removePMFraction(${idx},${fi})" class="text-amber-400 hover:text-rose-500">✕</button>
-        </span>`).join('')}</div>` : ''}
-    </div>
-  `).join('') : `<p class="text-center text-slate-400 font-bold py-4 text-xs">ยังไม่มีขนาด/รุ่น — เพิ่มอย่างน้อย 1 รายการด้านบน</p>`;
-};
-
-window.updatePMVariantField = function(idx, field, value) {
-  if (!pmVariants[idx]) return;
-  pmVariants[idx][field] = Math.max(0, parseFloat(value) || 0);
-};
-
-window.removePMVariant = function(idx) {
-  pmVariants.splice(idx, 1);
-  window.renderProductVariantList();
-};
-
-window.openAddFractionModal = function(variantIdx) {
-  document.getElementById('frac-variant-idx').value = variantIdx;
-  document.getElementById('frac-name').value = '';
-  document.getElementById('frac-ratio').value = '';
-  document.getElementById('frac-price').value = '';
-  document.getElementById('modal-add-fraction').classList.remove('hidden');
-  document.getElementById('modal-add-fraction').classList.add('flex');
-};
-
-window.confirmAddFraction = function() {
-  const idx = parseInt(document.getElementById('frac-variant-idx').value);
-  const name = document.getElementById('frac-name').value.trim();
-  const ratio = parseFloat(document.getElementById('frac-ratio').value) || 0;
-  const price = parseFloat(document.getElementById('frac-price').value) || 0;
-  if (!name || ratio <= 0 || price <= 0) return window.showAlert?.('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อ จำนวนหน่วยย่อยต่อ 1 หน่วยหลัก และราคาให้ถูกต้อง', true);
-  if (!pmVariants[idx]) return;
-
-  pmVariants[idx].fractions = pmVariants[idx].fractions || [];
-  pmVariants[idx].fractions.push({ id: 'f-' + Date.now(), fractionName: name, fractionMultiplier: roundStock(1 / ratio), fractionPrice: price });
-  window.closeModal('modal-add-fraction');
-  window.renderProductVariantList();
-};
-
-window.removePMFraction = function(variantIdx, fracIdx) {
-  pmVariants[variantIdx]?.fractions?.splice(fracIdx, 1);
-  window.renderProductVariantList();
-};
-
-window.openProductModal = function(id) {
-  if (id && !ok('PRODUCT_EDIT')) return;
-  if (!id && !ok('PRODUCT_CREATE')) return;
-
-  document.getElementById('pm-category').innerHTML = (db.categories || []).map(c => `<option>${esc(c.name)}</option>`).join('');
-  const p = id ? db.products[id] : null;
-  const set = (k, v) => document.getElementById(k).value = v ?? '';
-  set('product-edit-id', id || '');
-  set('pm-name', p?.name);
-  set('pm-sku', p?.code);
-  set('pm-category', p?.cat?.[0]);
-
-  pmPhotoDataUrl = null; pmPhotoChanged = false; window._pmDuplicateImageUrl = null;
-  if (p?.imageUrl) {
-    document.getElementById('pm-photo-preview').src = p.imageUrl;
-    document.getElementById('pm-photo-preview').classList.remove('hidden');
-    document.getElementById('pm-photo-placeholder').classList.add('hidden');
-    set('pm-image', '');
-  } else {
-    document.getElementById('pm-photo-preview').classList.add('hidden');
-    document.getElementById('pm-photo-placeholder').classList.remove('hidden');
-    set('pm-image', p?.image || '');
-  }
-
-  // Load EVERY existing variant (not just the first) so editing a multi-size product doesn't
-  // silently drop the rest of its sizes.
-  pmVariants = p ? p.variants.map(v => ({ ...v, fractions: (v.fractions || []).map(f => ({ ...f })) })) : [];
-  window.renderProductVariantList();
-  ['pmv-name', 'pmv-barcode', 'pmv-cost', 'pmv-price', 'pmv-stock'].forEach(fid => document.getElementById(fid).value = '');
-
-  document.getElementById('product-modal-title').textContent = p ? '✏️ แก้ไขสินค้า' : '➕ เพิ่มสินค้า';
-  // Only useful when adding a brand-new product — editing is already about one specific item.
-  const dupWrap = document.getElementById('pm-duplicate-wrap');
-  if (dupWrap) dupWrap.classList.toggle('hidden', !!p);
-  window.closeDuplicateProductPicker?.();
-
-  const m = document.getElementById('modal-product-manager');
-  m.classList.remove('hidden'); m.classList.add('flex');
-};
-
-// ---- "คัดลอกจากสินค้าเดิม" — fast-start a new product from an existing one's category,
-// photo, and sizes, instead of typing everything from scratch. Stock resets to 0 (a clone
-// is a distinct new catalog entry, not the same physical stock) and barcodes are cleared
-// (barcodes must stay unique per item); everything else carries over for quick editing. ----
-window.openDuplicateProductPicker = function() {
-  document.getElementById('pm-duplicate-wrap').querySelector('button').classList.add('hidden');
-  const search = document.getElementById('pm-duplicate-search');
-  search.classList.remove('hidden');
-  search.value = '';
-  search.focus();
-  window.filterDuplicateProductPicker();
-};
-
-window.closeDuplicateProductPicker = function() {
-  const btn = document.getElementById('pm-duplicate-wrap')?.querySelector('button');
-  if (btn) btn.classList.remove('hidden');
-  document.getElementById('pm-duplicate-search')?.classList.add('hidden');
-  document.getElementById('pm-duplicate-results')?.classList.add('hidden');
-};
-
-window.filterDuplicateProductPicker = function() {
-  const q = (document.getElementById('pm-duplicate-search').value || '').trim().toLowerCase();
-  const resultsEl = document.getElementById('pm-duplicate-results');
-  const all = Object.values(db.products || {});
-  let matches = q
-    ? all.filter(p => p.name.toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q))
-    : all;
-  matches = matches.slice(0, 40);
-
-  resultsEl.innerHTML = matches.length ? matches.map(p => {
-    const img = p.imageUrl
-      ? `<img src="${escapeHTML(p.imageUrl)}" class="w-9 h-9 object-cover rounded-lg border flex-shrink-0">`
-      : `<span class="w-9 h-9 flex items-center justify-center text-xl flex-shrink-0">${escapeHTML(p.image || '📦')}</span>`;
-    return `
-      <button type="button" onclick="window.applyProductDuplicate('${p.id}')" class="w-full flex items-center gap-2 p-2 hover:bg-indigo-50 text-left border-b last:border-0 btn-touch">
-        ${img}
-        <div class="flex-1 min-w-0">
-          <div class="font-bold text-xs text-slate-800 truncate">${escapeHTML(p.name)}</div>
-          <div class="text-[10px] text-slate-400">SKU: ${escapeHTML(p.code || '-')} • ${p.variants.length} ขนาด</div>
-        </div>
-      </button>`;
-  }).join('') : `<div class="p-4 text-center text-slate-400 text-xs font-bold">ไม่พบสินค้าที่ค้นหา</div>`;
-  resultsEl.classList.remove('hidden');
-};
-
-window.applyProductDuplicate = function(sourceId) {
-  const src = db.products[sourceId];
-  if (!src) return;
-
-  document.getElementById('pm-name').value = src.name + ' (สำเนา)';
-  document.getElementById('pm-sku').value = ''; // auto-generated fresh on save — SKUs must stay unique
-  document.getElementById('pm-category').value = src.cat?.[0] || '';
-
-  pmPhotoDataUrl = null; pmPhotoChanged = false; window._pmDuplicateImageUrl = null;
-  if (src.imageUrl) {
-    document.getElementById('pm-photo-preview').src = src.imageUrl;
-    document.getElementById('pm-photo-preview').classList.remove('hidden');
-    document.getElementById('pm-photo-placeholder').classList.add('hidden');
-    document.getElementById('pm-image').value = '';
-    // Carried over by URL reference only (it's already hosted) — saveProduct checks
-    // window._pmDuplicateImageUrl before its normal upload logic, so this doesn't get
-    // needlessly re-uploaded as a new file.
-    window._pmDuplicateImageUrl = src.imageUrl;
-  } else {
-    document.getElementById('pm-photo-preview').classList.add('hidden');
-    document.getElementById('pm-photo-placeholder').classList.remove('hidden');
-    document.getElementById('pm-image').value = src.image || '';
-  }
-
-  // Clone every size — new ids, barcode cleared (must stay unique), stock reset to 0 (a
-  // duplicate is a new catalog entry, not the same physical inventory), price/cost carried over.
-  pmVariants = src.variants.map(v => ({
-    id: 'v-' + Date.now() + Math.random().toString(36).slice(2, 5),
-    sizeName: v.sizeName, barcode: '', cost: v.cost, price: v.price, stock: 0, minStock: v.minStock || 5,
-    fractions: (v.fractions || []).map(f => ({ id: 'f-' + Date.now() + Math.random().toString(36).slice(2, 5), fractionName: f.fractionName, fractionMultiplier: f.fractionMultiplier, fractionPrice: f.fractionPrice }))
-  }));
-  window.renderProductVariantList();
-
-  window.closeDuplicateProductPicker();
-  window.showToast?.(`คัดลอกจาก "${src.name}" แล้ว — ตรวจสอบและแก้ไขก่อนบันทึก`);
-};
-
-document.addEventListener('click', (e) => {
-  const wrap = document.getElementById('pm-duplicate-wrap');
-  if (wrap && !wrap.contains(e.target)) window.closeDuplicateProductPicker?.();
-});
-
-window.saveProduct = async function() {
-  const id = document.getElementById('product-edit-id').value;
-  if (id && !ok('PRODUCT_EDIT')) return;
-  if (!id && !ok('PRODUCT_CREATE')) return;
-
-  const name = document.getElementById('pm-name').value.trim();
-  if (!name) return window.showAlert?.('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อสินค้า', true);
-  if (!pmVariants.length) return window.showAlert?.('ข้อมูลไม่ครบ', 'กรุณาเพิ่มขนาด/รุ่นอย่างน้อย 1 รายการ', true);
-
-  let sku = document.getElementById('pm-sku').value.trim();
-  if (!sku) sku = window.getAutoSku(); // fast entry: don't block on a SKU nobody typed in
-
-  const p = id ? db.products[id] : null;
-  const pid = id || ('p-' + Date.now());
-
-  let imageUrl = p?.imageUrl || null;
-  let imageEmoji = document.getElementById('pm-image').value.trim() || (imageUrl ? '' : '📦');
-
-  if (window._pmDuplicateImageUrl) {
-    // Carried over from "คัดลอกจากสินค้าเดิม" — already a hosted URL, nothing to (re-)upload.
-    imageUrl = window._pmDuplicateImageUrl;
-    imageEmoji = '';
-    window._pmDuplicateImageUrl = null;
-  } else if (pmPhotoChanged) {
-    if (pmPhotoDataUrl) {
-      // Try to upload the compressed photo to Supabase Storage so it's usable across devices;
-      // fall back to keeping the compressed data URL locally if offline or upload fails.
-      try {
-        const c = sb();
-        if (c) {
-          const blob = await (await fetch(pmPhotoDataUrl)).blob();
-          const path = `${pid}_${Date.now()}.jpg`;
-          const { error: upErr } = await c.storage.from('product-images').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
-          if (!upErr) { const { data } = c.storage.from('product-images').getPublicUrl(path); imageUrl = data.publicUrl; }
-          else { imageUrl = pmPhotoDataUrl; }
-        } else {
-          imageUrl = pmPhotoDataUrl;
-        }
-      } catch (e) { imageUrl = pmPhotoDataUrl; console.warn('product photo upload failed, kept locally', e); }
-      imageEmoji = '';
-    } else {
-      imageUrl = null; // user cleared the photo in favor of an emoji
-    }
-  }
-
-  db.products[pid] = {
-    id: pid, name, code: sku, cat: [document.getElementById('pm-category').value],
-    image: imageEmoji, imageUrl,
-    minStock: pmVariants[0]?.minStock || 5,
-    variants: pmVariants.map(v => ({ ...v }))
-  };
-
-  window.persist?.();
-  window.closeModal('modal-product-manager');
-  window.renderStockTable();
-  window.renderSaleHome?.();
-  window.populatePOPickers?.();
-  window.showToast?.(id ? 'บันทึกการแก้ไขสินค้าสำเร็จ' : `เพิ่มสินค้าสำเร็จ (SKU: ${sku})`);
-
-  // Best-effort background push — reuses the same product/variant/fraction mapping as the
-  // periodic full sync, so there's no separate, possibly-drifting mapping logic to maintain here.
-  window.syncProductsToSupabase?.(true);
-};
-
-window.deleteProduct = async id => {
-  if (!ok('PRODUCT_DELETE') || !confirm('ยืนยันการลบสินค้านี้?')) return;
-  try { const c = sb(); if (c) await c.from('products').delete().eq('id', id); } catch (e) { console.warn(e); }
-  delete db.products[id];
-  window.persist?.();
-  window.renderStockTable();
-  window.renderSaleHome?.();
-  window.populatePOPickers?.();
-};
+window.openProductModal=function(id){if(id&&!ok('PRODUCT_EDIT'))return;if(!id&&!ok('PRODUCT_CREATE'))return;const e=document.getElementById('pm-category');e.innerHTML=(db.categories||[]).map(c=>`<option>${esc(c.name)}</option>`).join('');const p=id?db.products[id]:null,v=p?.variants?.[0]||{},set=(k,v)=>document.getElementById(k).value=v??'';set('product-edit-id',id||'');set('pm-name',p?.name);set('pm-sku',p?.code);set('pm-category',p?.cat?.[0]);set('pm-image',p?.imageUrl||p?.image);set('pm-variant-name',v.sizeName||'ปกติ');set('pm-barcode',v.barcode);set('pm-cost',v.cost);set('pm-price',v.price);set('pm-stock',v.stock);set('pm-min-stock',v.minStock||p?.minStock);document.getElementById('product-modal-title').textContent=p?'✏️ แก้ไขสินค้า':'➕ เพิ่มสินค้า';const m=document.getElementById('modal-product-manager');m.classList.remove('hidden');m.classList.add('flex');};
+window.saveProduct=async function(){const id=document.getElementById('product-edit-id').value;if(id&&!ok('PRODUCT_EDIT'))return;if(!id&&!ok('PRODUCT_CREATE'))return;const name=document.getElementById('pm-name').value.trim();if(!name)return window.showAlert?.('ข้อมูลไม่ครบ','กรุณากรอกชื่อสินค้า',true);const val=k=>document.getElementById(k).value,n=k=>parseFloat(val(k))||0,p=id?db.products[id]:null,pid=id||('p-'+Date.now()),vid=p?.variants?.[0]?.id||('v-'+Date.now());db.products[pid]={id:pid,name,code:val('pm-sku').trim(),cat:[val('pm-category')],image:val('pm-image').trim()||'📦',minStock:n('pm-min-stock'),variants:[{id:vid,sizeName:val('pm-variant-name').trim()||'ปกติ',barcode:val('pm-barcode').trim(),cost:n('pm-cost'),price:n('pm-price'),stock:n('pm-stock'),minStock:n('pm-min-stock'),fractions:p?.variants?.[0]?.fractions||[]}]};const c=sb();if(c)try{if(id)await c.from('products').update({name,sku:val('pm-sku').trim(),image_url:val('pm-image').trim(),min_stock_alert:n('pm-min-stock')}).eq('id',pid);else await c.from('products').insert({id:pid,name,sku:val('pm-sku').trim(),image_url:val('pm-image').trim(),min_stock_alert:n('pm-min-stock')});}catch(e){console.warn('SQL product sync',e);}persist();window.closeModal('modal-product-manager');window.renderStockTable();window.renderSaleHome?.();window.populatePOPickers?.();};
+window.deleteProduct=async id=>{if(!ok('PRODUCT_DELETE')||!confirm('ยืนยันการลบสินค้านี้?'))return;try{const c=sb();if(c)await c.from('products').delete().eq('id',id);}catch(e){console.warn(e)}delete db.products[id];persist();window.renderStockTable();window.renderSaleHome?.();window.populatePOPickers?.();};
 
 // NOTE: the action-column patch that used to live here (bolting a "แก้ไข/ลบ" cell onto each
 // row by matching Object.values(db.products)[rowIndex]) has been removed — it silently
@@ -3661,48 +3312,7 @@ window.confirmReceivePO=async function(){if(!ok('GOODS_RECEIPT'))return;const su
       }catch(e){receipt.deliveryNoteUrls.push(f.dataUrl);console.warn('delivery note upload error, kept locally',e);}
     }
   }
-  db.purchaseOrders=db.purchaseOrders||[];db.purchaseOrders.push(receipt);for(const x of poTempItems){const p=db.products[x.productId],v=p?.variants?.[0];if(v){v.stock=(+v.stock||0)+(+x.qty||0);v.cost=+x.cost||0;}}db.cashLedger=db.cashLedger||[];db.cashLedger.push({id:'AP-'+Date.now(),type:'ACCOUNTS_PAYABLE',supplierId,docRef,amount:poTempItems.reduce((a,x)=>a+x.total,0),terms,status:'OPEN',createdAt:receipt.receivedAt});persist();const itemsForSync=receipt.items;poTempItems.length=0;window.renderPOCartList();window.renderStockTable();window.renderPurchaseHistory();window.clearDeliveryNote?.();window.showToast?.('รับสินค้าเข้าคลังและบันทึกเจ้าหนี้สำเร็จ');document.getElementById('po-doc-ref').value='';
-  // Best-effort authoritative push to Supabase via the proper purchase_orders →
-  // purchase_order_items → receive_purchase_order RPC flow (the schema's real, atomic
-  // receiving path — it locks rows, validates received quantity against ordered quantity, and
-  // writes an inventory_movements audit entry). Runs in the background so the cashier flow
-  // above never blocks on network; local stock/AP are already authoritative either way.
-  // NOTE: receive_purchase_order requires the signed-in Supabase session to belong to an
-  // OWNER or MANAGER app_user (enforced by is_manager() inside the function itself) — this
-  // silently no-ops (logged to console only) if that's not the case, same as every other
-  // background sync in this app.
-  window.syncGoodsReceiptToSupabase?.(receipt, supplierId, docRef, terms);
-};
-
-window.syncGoodsReceiptToSupabase=async function(receipt, supplierId, docRef, terms){
-  const c=sb(); if(!c)return;
-  try{
-    const sup=db.suppliers[supplierId];
-    const supUUID=toUUID(supplierId);
-    if(sup) await c.from('suppliers').upsert([{id:supUUID,name:sup.name,phone:sup.phone||null,address:sup.address||''}],{onConflict:'id'});
-
-    const { data: poRow, error: poErr } = await c.from('purchase_orders').insert({
-      po_number: docRef, supplier_id: supUUID, status: 'ORDERED', document_ref: docRef, credit_terms: terms, ordered_at: receipt.receivedAt
-    }).select().single();
-    if(poErr) throw poErr;
-
-    const itemInserts = receipt.items.map(x => ({
-      purchase_order_id: poRow.id,
-      product_id: toUUID(x.productId),
-      variant_id: db.products[x.productId]?.variants?.[0]?.id ? toUUID(db.products[x.productId].variants[0].id) : null,
-      quantity: x.qty,
-      unit_cost: x.cost
-    }));
-    const { data: itemRows, error: itemErr } = await c.from('purchase_order_items').insert(itemInserts).select();
-    if(itemErr) throw itemErr;
-
-    const receiveItems = itemRows.map(r => ({ purchase_order_item_id: r.id, received_quantity: r.quantity }));
-    const { error: recvErr } = await c.rpc('receive_purchase_order', { p_purchase_order_id: poRow.id, p_items: receiveItems });
-    if(recvErr) throw recvErr;
-  }catch(e){
-    console.warn('goods receipt server sync failed (stock/AP already recorded locally):', e);
-  }
-};
+  db.purchaseOrders=db.purchaseOrders||[];db.purchaseOrders.push(receipt);for(const x of poTempItems){const p=db.products[x.productId],v=p?.variants?.[0];if(v){v.stock=(+v.stock||0)+(+x.qty||0);v.cost=+x.cost||0;try{const c=sb();if(c&&v.id)await c.from('product_variants').update({stock_quantity:v.stock,cost_override:v.cost}).eq('id',v.id)}catch(e){console.warn(e)}}}db.cashLedger=db.cashLedger||[];db.cashLedger.push({id:'AP-'+Date.now(),type:'ACCOUNTS_PAYABLE',supplierId,docRef,amount:poTempItems.reduce((a,x)=>a+x.total,0),terms,status:'OPEN',createdAt:receipt.receivedAt});persist();poTempItems.length=0;window.renderPOCartList();window.renderStockTable();window.renderPurchaseHistory();window.clearDeliveryNote?.();window.showToast?.('รับสินค้าเข้าคลังและบันทึกเจ้าหนี้สำเร็จ');document.getElementById('po-doc-ref').value='';};
 
 // Purchase history + accounts-payable panel (§2.3/2.7 of the manual — "รับสินค้าเข้าคลัง...ตั้งยอดเจ้าหนี้การค้าให้อัตโนมัติ")
 window.renderPurchaseHistory=function(){
@@ -3758,6 +3368,268 @@ window.markAPPaid=function(id){if(!ok('ALL')&&!ok('GOODS_RECEIPT'))return;const 
 
 document.addEventListener('DOMContentLoaded',()=>{ensure();window.renderStockTable?.();});
 })();
+
+/* Smart POS Fixed Edition v6 — Inventory Check + Shift/Cash Management */
+(function(){
+  const money=n=>'฿'+(Math.round((Number(n)||0)*100)/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const uuid=s=>window.toUUID?window.toUUID(s):s;
+  const nowISO=()=>new Date().toISOString();
+  const currentMonth=()=>new Date().toISOString().slice(0,7);
+  const activeShift=()=>db.currentShift && db.currentShift.status==='open' ? db.currentShift : null;
+  const isSameMonth=(v,m)=>{const d=new Date(v);return !isNaN(d)&&d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')===m;};
+
+  // Inventory table: paginate instead of painting 2,000+ rows at once.
+  let stockPage=1;
+  const originalRenderStock=window.renderStockTable;
+  window.resetStockFilters=function(){
+    ['stock-search-input','stock-category-filter','stock-status-filter','stock-image-filter'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='ALL';});
+    const q=document.getElementById('stock-search-input');if(q)q.value=''; stockSortBy='name';stockSortDir='asc';stockPage=1;window.renderStockTable();
+  };
+  window.setStockQuickFilter=function(kind){
+    const status=document.getElementById('stock-status-filter'), img=document.getElementById('stock-image-filter');
+    if(status)status.value=['LOW','OUT','NORMAL'].includes(kind)?kind:'ALL';
+    if(img)img.value=['HAS_IMAGE','NO_IMAGE'].includes(kind)?kind:'ALL';
+    if(kind==='ALL'){if(status)status.value='ALL';if(img)img.value='ALL';}
+    stockPage=1;window.renderStockTable();
+  };
+  window.gotoStockPage=function(delta){stockPage=Math.max(1,stockPage+delta);window.renderStockTable();};
+  window.renderStockTable=function(){
+    const search=(document.getElementById('stock-search-input')?.value||'').toLowerCase().trim();
+    const catFilter=document.getElementById('stock-category-filter')?.value||'ALL';
+    const statusFilter=document.getElementById('stock-status-filter')?.value||'ALL';
+    const imageFilter=document.getElementById('stock-image-filter')?.value||'ALL';
+    const tbody=document.getElementById('stock-table-body'); if(!tbody)return;
+    const catSel=document.getElementById('stock-category-filter');
+    if(catSel){const keep=catSel.value||'ALL';catSel.innerHTML='<option value="ALL">📁 หมวดหมู่ทั้งหมด</option>'+((db.categories||[]).map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join(''));catSel.value=[...catSel.options].some(o=>o.value===keep)?keep:'ALL';}
+    let all=[]; Object.values(db.products||{}).forEach(p=>(p.variants||[]).forEach(v=>{
+      const stock=Number(v.stock)||0, min=Number(v.minStock??p.minStock??10)||0;
+      const out=stock<=0, low=!out&&stock<=min;
+      const hasImage=!!(p.imageUrl || (typeof p.image==='string' && /^https?:|^data:image/i.test(p.image)));
+      const text=[p.name,p.code,v.barcode,v.sizeName].filter(Boolean).join(' ').toLowerCase();
+      const okSearch=!search||text.includes(search), okCat=catFilter==='ALL'||(p.cat||[]).includes(catFilter);
+      const okStatus=statusFilter==='ALL'||(statusFilter==='OUT'&&out)||(statusFilter==='LOW'&&low)||(statusFilter==='NORMAL'&&!out&&!low);
+      const okImg=imageFilter==='ALL'||(imageFilter==='HAS_IMAGE'&&hasImage)||(imageFilter==='NO_IMAGE'&&!hasImage);
+      if(okSearch&&okCat&&okStatus&&okImg)all.push({p,v,out,low,hasImage});
+    }));
+    const totalAll=Object.values(db.products||{}).reduce((n,p)=>n+(p.variants||[]).length,n=0);
+    const stats={low:0,out:0,has:0,no:0}; Object.values(db.products||{}).forEach(p=>(p.variants||[]).forEach(v=>{const st=Number(v.stock)||0,min=Number(v.minStock??p.minStock??10)||0;if(st<=0)stats.out++;else if(st<=min)stats.low++;const hi=!!(p.imageUrl||(typeof p.image==='string'&&/^https?:|^data:image/i.test(p.image)));hi?stats.has++:stats.no++;}));
+    const qf=document.getElementById('stock-quick-filters'); if(qf)qf.innerHTML=`<button onclick="window.setStockQuickFilter('ALL')" class="px-3 py-1.5 rounded-full border bg-white font-bold btn-touch">ทั้งหมด ${totalAll}</button><button onclick="window.setStockQuickFilter('LOW')" class="px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 font-bold btn-touch">⚠️ สต๊อกต่ำ ${stats.low}</button><button onclick="window.setStockQuickFilter('OUT')" class="px-3 py-1.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 font-bold btn-touch">❌ หมด ${stats.out}</button><button onclick="window.setStockQuickFilter('NO_IMAGE')" class="px-3 py-1.5 rounded-full border bg-slate-50 text-slate-600 font-bold btn-touch">⬜ ไม่มีรูป ${stats.no}</button>`;
+    document.querySelectorAll('[id^="sort-arrow-"]').forEach(e=>e.textContent=''); const ar=document.getElementById('sort-arrow-'+stockSortBy);if(ar)ar.textContent=stockSortDir==='asc'?'▲':'▼';
+    const dir=stockSortDir==='desc'?-1:1; const cmp={name:(a,b)=>a.p.name.localeCompare(b.p.name,'th'),code:(a,b)=>(a.p.code||'').localeCompare(b.p.code||''),barcode:(a,b)=>(a.v.barcode||'').localeCompare(b.v.barcode||''),cost:(a,b)=>(Number(a.v.cost)||0)-(Number(b.v.cost)||0),price:(a,b)=>(Number(a.v.price)||0)-(Number(b.v.price)||0),stock:(a,b)=>(Number(a.v.stock)||0)-(Number(b.v.stock)||0),cat:(a,b)=>((a.p.cat||[])[0]||'').localeCompare(((b.p.cat||[])[0]||''),'th')}; if(cmp[stockSortBy])all.sort((a,b)=>cmp[stockSortBy](a,b)*dir);
+    const pageSize=Number(document.getElementById('stock-page-size')?.value)||100, pages=Math.max(1,Math.ceil(all.length/pageSize));stockPage=Math.min(stockPage,pages);const start=(stockPage-1)*pageSize,rows=all.slice(start,start+pageSize);
+    const summary=document.getElementById('stock-filter-summary');if(summary)summary.textContent=`พบ ${all.length.toLocaleString()} จากทั้งหมด ${totalAll.toLocaleString()} รายการ • หน้า ${stockPage}/${pages}`;
+    const count=document.getElementById('stock-total-count');if(count)count.textContent=totalAll.toLocaleString();
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="11" class="p-8 text-center text-slate-400 font-bold">ไม่พบรายการสินค้าที่ตรงเงื่อนไข</td></tr>';return;}
+    tbody.innerHTML=rows.map((x,i)=>{const {p,v,out,low,hasImage}=x;const image=p.imageUrl||p.image;const thumb=hasImage?`<img src="${esc(image)}" loading="lazy" class="w-9 h-9 object-cover rounded-lg border mx-auto">`:`<span class="text-xl">${esc((p.image&&String(p.image).length<8)?p.image:'📦')}</span>`;const badge=out?'<span class="text-rose-600 bg-rose-50 px-2 py-1 rounded-lg">0 ชิ้น<br><small>❌ หมด</small></span>':low?`<span class="text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">${Number(v.stock)||0} ชิ้น<br><small>⚠️ ต่ำ</small></span>`:`<span class="text-emerald-600">${Number(v.stock)||0} ชิ้น</span>`;return `<tr class="hover:bg-indigo-50/40 border-b even:bg-slate-50/60"><td class="p-3 text-center font-bold text-slate-400">${start+i+1}</td><td class="p-3 text-center">${thumb}</td><td class="p-3"><span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 border rounded-full px-2 py-0.5">${esc((p.cat||[])[0]||'งานทั่วไป')}</span></td><td class="p-3 font-bold">${esc(p.name)} <span class="text-slate-400 text-[10px]">(${esc(v.sizeName||'ปกติ')})</span></td><td class="p-3 font-mono text-[11px]">${esc(p.code||'-')}</td><td class="p-3 font-mono text-[11px]">${esc(v.barcode||'-')}</td><td class="p-3 text-right">฿${Number(v.cost)||0}</td><td class="p-3 text-right font-bold text-indigo-600">฿${Number(v.price)||0}</td><td class="p-3 text-center font-black text-xs">${badge}</td><td class="p-3 text-slate-400">${(v.fractions||[]).length?'มี '+(v.fractions||[]).length+' หน่วยย่อย':'-'}</td><td class="p-3 text-center"><button onclick="window.openProductModal('${esc(p.id)}')" class="text-indigo-600 font-bold mr-2 btn-touch">แก้ไข</button><button onclick="window.deleteProduct('${esc(p.id)}')" class="text-rose-500 font-bold btn-touch">ลบ</button></td></tr>`;}).join('')+`<tr><td colspan="11" class="p-3 text-center bg-white sticky bottom-0"><button onclick="window.gotoStockPage(-1)" ${stockPage<=1?'disabled':''} class="px-3 py-1.5 border rounded-lg mr-2 font-bold disabled:opacity-40">‹ ก่อนหน้า</button><span class="font-bold text-slate-500">${stockPage}/${pages}</span><button onclick="window.gotoStockPage(1)" ${stockPage>=pages?'disabled':''} class="px-3 py-1.5 border rounded-lg ml-2 font-bold disabled:opacity-40">ถัดไป ›</button></td></tr>`;
+  };
+
+  function shiftCashSummary(shift){if(!shift)return {start:0,sales:0,ins:0,outs:0,expected:0};const id=shift.id;const bills=(db.bills||[]).filter(b=>b.shiftId===id&&!b.isRefunded&&String(b.method).toUpperCase()==='CASH');const sales=bills.reduce((s,b)=>s+(Number(b.total)||0),0);const tx=(db.cashLedger||[]).filter(x=>x.shiftId===id&&['cash_in','cash_out'].includes(x.type));const ins=tx.filter(x=>x.type==='cash_in').reduce((s,x)=>s+(Number(x.amount)||0),0);const outs=tx.filter(x=>x.type==='cash_out').reduce((s,x)=>s+(Number(x.amount)||0),0);const start=Number(shift.openingCash)||0;return {start,sales,ins,outs,expected:start+sales+ins-outs};}
+  window.updateShiftStatus=function(){const sh=activeShift(),label=document.getElementById('shift-status-label'),btn=document.getElementById('shift-status-button');if(label)label.textContent=sh?'กะเปิดอยู่':'เปิดกะ';if(btn){btn.className='hidden sm:flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[10px] font-bold border btn-touch '+(sh?'bg-emerald-50 text-emerald-700 border-emerald-200':'bg-amber-50 text-amber-700 border-amber-200');}};
+  window.openShift=function(){if(activeShift())return window.showToast?.('มีกะที่เปิดอยู่แล้ว');const input=prompt('เงินทอนเริ่มต้นในลิ้นชัก (บาท)','0');if(input===null)return;const amount=Number(input);if(!Number.isFinite(amount)||amount<0)return window.showAlert?.('จำนวนเงินไม่ถูกต้อง','กรุณาระบุจำนวนเงินตั้งต้นตั้งแต่ 0 บาทขึ้นไป',true);db.shifts=db.shifts||[];const sh={id:'shift-'+Date.now(),startTime:nowISO(),openingCash:amount,status:'open',openedBy:db.activeUser?.name||'เจ้าของร้าน'};db.shifts.push(sh);db.currentShift=sh;persist();window.refreshCashDashboard();window.updateShiftStatus();window.syncTransactionsToSupabase?.(true);window.showToast?.('🟢 เปิดกะเรียบร้อย เงินทอน '+money(amount));};
+  window.closeShift=function(){const sh=activeShift();if(!sh)return;const sum=shiftCashSummary(sh);const input=prompt(`เงินสดตามระบบ ${money(sum.expected)}\nกรอกเงินสดที่นับได้จริง (บาท):`,String(sum.expected));if(input===null)return;const actual=Number(input);if(!Number.isFinite(actual)||actual<0)return window.showAlert?.('จำนวนเงินไม่ถูกต้อง','กรุณากรอกจำนวนเงินที่นับได้จริง',true);sh.endTime=nowISO();sh.cashOnHand=actual;sh.expectedCash=sum.expected;sh.difference=actual-sum.expected;sh.status='closed';db.currentShift=null;persist();window.refreshCashDashboard();window.updateShiftStatus();window.syncTransactionsToSupabase?.(true);window.showAlert?.('ปิดกะเรียบร้อย',`เงินตามระบบ ${money(sum.expected)}\nเงินที่นับจริง ${money(actual)}\nส่วนต่าง ${money(sh.difference)}`,false);};
+  window.addCashLedgerEntry=function(){const sh=activeShift();if(!sh)return window.showAlert?.('ยังไม่ได้เปิดกะ','กรุณาเปิดกะก่อนบันทึกเงินเข้า/ออกลิ้นชัก',true);const type=document.getElementById('ledger-direction').value,amount=Number(document.getElementById('ledger-amount').value),reason=document.getElementById('ledger-reason').value.trim(),category=document.getElementById('ledger-category').value;if(!Number.isFinite(amount)||amount<=0)return window.showAlert?.('ข้อมูลไม่ครบ','กรุณาระบุจำนวนเงินมากกว่า 0',true);db.cashLedger=db.cashLedger||[];db.cashLedger.push({id:'cash-'+Date.now(),shiftId:sh.id,type,amount,reason:reason||category,category,createdAt:nowISO(),userName:db.activeUser?.name||''});document.getElementById('ledger-amount').value='';document.getElementById('ledger-reason').value='';persist();window.refreshCashDashboard();window.syncTransactionsToSupabase?.(true);window.showToast?.('บันทึกรายการเงินเรียบร้อย');};
+  window.refreshCashDashboard=function(){const sh=activeShift(),card=document.getElementById('cash-shift-card'),sum=shiftCashSummary(sh);if(card)card.innerHTML=sh?`<div class="flex flex-col sm:flex-row justify-between gap-3"><div><div class="text-[10px] text-emerald-600 font-black">🟢 กำลังเปิดกะ</div><h4 class="text-lg font-black text-slate-800">กะของ ${esc(sh.openedBy||'พนักงาน')}</h4><p class="text-xs text-slate-400">เปิดเมื่อ ${new Date(sh.startTime).toLocaleString('th-TH')}</p></div><div class="flex gap-2"><button onclick="window.closeShift()" class="px-4 py-3 bg-rose-600 text-white rounded-xl text-xs font-bold btn-touch">🔴 ปิดกะและนับเงิน</button></div></div>`:`<div class="flex flex-col sm:flex-row justify-between items-center gap-3"><div><div class="text-[10px] text-amber-600 font-black">🟡 ยังไม่ได้เปิดกะ</div><h4 class="text-lg font-black">เริ่มต้นวันด้วยการเปิดกะ</h4><p class="text-xs text-slate-400">ระบุเงินทอนเริ่มต้นก่อนเริ่มควบคุมเงินสดในลิ้นชัก</p></div><button onclick="window.openShift()" class="px-5 py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold btn-touch">🟢 เปิดกะ</button></div>`;
+    const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};set('cash-expected',money(sum.expected));set('cash-sales',money(sum.sales));set('cash-flow',money(sum.ins)+' / '+money(sum.outs));
+    const list=document.getElementById('cash-ledger-list'),tx=(db.cashLedger||[]).filter(x=>!sh||x.shiftId===sh.id).filter(x=>['cash_in','cash_out'].includes(x.type)).slice().reverse();const cnt=document.getElementById('cash-ledger-count');if(cnt)cnt.textContent=tx.length+' รายการ';if(list)list.innerHTML=tx.length?tx.map(x=>`<div class="flex justify-between gap-3 p-3 rounded-xl border ${x.type==='cash_in'?'bg-emerald-50 border-emerald-100':'bg-rose-50 border-rose-100'}"><div><b class="text-xs">${x.type==='cash_in'?'💚 เงินรับเข้า':'🔴 เงินจ่ายออก'}</b><span class="block text-[10px] text-slate-500">${esc(x.reason||x.category||'-')} • ${new Date(x.createdAt||Date.now()).toLocaleString('th-TH')}</span></div><b class="text-sm">${money(x.amount)}</b></div>`).join(''):'<p class="text-center text-slate-400 text-xs py-8">ยังไม่มีรายการเงินเข้า/ออก</p>';
+    window.renderMonthlyReport();
+  };
+  window.__legacy_renderMonthlyReport =function(){
+    const monthEl=document.getElementById('report-month');
+    if(!monthEl)return;
+    if(!monthEl.value)monthEl.value=currentMonth();
+    const m=monthEl.value;
+    const bills=(db.bills||[]).filter(b=>isSameMonth(b.time,m)&&!b.isRefunded);
+    const sales=bills.reduce((s,b)=>s+(Number(b.total)||0),0);
+    const cashSales=bills.filter(b=>String(b.method).toUpperCase()==='CASH').reduce((s,b)=>s+(Number(b.total)||0),0);
+    const transferSales=bills.filter(b=>['TRANSFER','QR_PROMPTPAY'].includes(String(b.method).toUpperCase())).reduce((s,b)=>s+(Number(b.total)||0),0);
+    const creditSales=bills.filter(b=>String(b.method).toUpperCase()==='CREDIT').reduce((s,b)=>s+(Number(b.total)||0),0);
+    const cogs=bills.reduce((s,b)=>s+(b.items||[]).reduce((is,i)=>is+(Number(i.cost??i.unitCost??0)*Number(i.qty||0)),0),0);
+    const grossProfit=roundAmt(sales-cogs);
+    const payments=(db.customerPayments||[]).filter(x=>isSameMonth(x.receivedAt||x.createdAt||x.time,m));
+    const arCash=payments.filter(x=>String(x.method).toUpperCase()==='CASH').reduce((s,x)=>s+(Number(x.amount)||0),0);
+    const arTransfer=payments.filter(x=>String(x.method).toUpperCase()==='TRANSFER').reduce((s,x)=>s+(Number(x.amount)||0),0);
+    const tx=(db.cashLedger||[]).filter(x=>isSameMonth(x.createdAt||x.time,m));
+    const otherIncome=tx.filter(x=>x.type==='cash_in').reduce((s,x)=>s+(Number(x.amount)||0),0);
+    const expenses=tx.filter(x=>x.type==='cash_out').reduce((s,x)=>s+(Number(x.amount)||0),0);
+    const cashIn=roundAmt(cashSales+arCash+otherIncome);
+    const transferIn=roundAmt(transferSales+arTransfer);
+    const netCash=roundAmt(cashIn+transferIn-expenses);
+    const cards=document.getElementById('monthly-report-cards');
+    if(cards)cards.innerHTML=`
+      <div class="p-4 rounded-2xl bg-indigo-50 border border-indigo-100"><span class="text-[10px] text-indigo-500 font-bold">ยอดขายรวม</span><b class="block text-lg text-indigo-700">${money(sales)}</b><small class="text-[9px] text-slate-500">ไม่รวมการเก็บหนี้เก่า</small></div>
+      <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-100"><span class="text-[10px] text-emerald-600 font-bold">กำไรขั้นต้น</span><b class="block text-lg text-emerald-700">${money(grossProfit)}</b></div>
+      <div class="p-4 rounded-2xl bg-amber-50 border border-amber-100"><span class="text-[10px] text-amber-600 font-bold">รับชำระลูกหนี้</span><b class="block text-lg text-amber-700">${money(arCash+arTransfer)}</b><small class="text-[9px] text-slate-500">เงินที่เก็บได้จริง</small></div>
+      <div class="p-4 rounded-2xl bg-rose-50 border border-rose-100"><span class="text-[10px] text-rose-600 font-bold">รายจ่ายเงินสด</span><b class="block text-lg text-rose-700">${money(expenses)}</b></div>
+      <div class="p-4 rounded-2xl bg-slate-100 border col-span-2 md:col-span-4"><span class="text-[10px] text-slate-500 font-bold">เงินสุทธิจากกระแสเงิน</span><b class="block text-xl text-slate-800">${money(netCash)}</b><small class="text-[9px] text-slate-500">ยอดขายที่รับเงินจริง + รับชำระหนี้ + รายรับอื่น − รายจ่าย</small></div>`;
+    const detail=document.getElementById('monthly-report-detail');
+    if(detail)detail.innerHTML=`
+      <div class="p-3 rounded-xl border"><b>💳 เงินจากการขาย</b><p class="text-slate-500 mt-1">สด ${money(cashSales)} • โอน/QR ${money(transferSales)} • เครดิต ${money(creditSales)} • ${bills.length} บิล</p></div>
+      <div class="p-3 rounded-xl border"><b>🤝 รับชำระลูกหนี้</b><p class="text-slate-500 mt-1">สด ${money(arCash)} • โอน ${money(arTransfer)} • รวม ${money(arCash+arTransfer)}</p></div>
+      <div class="p-3 rounded-xl border"><b>📦 ต้นทุนสินค้า</b><p class="text-slate-500 mt-1">ต้นทุนขาย ${money(cogs)} • กำไรขั้นต้น ${money(grossProfit)}</p></div>
+      <div class="p-3 rounded-xl border"><b>💰 กระแสเงิน</b><p class="text-slate-500 mt-1">เงินสดเข้า ${money(cashIn)} • เงินโอนเข้า ${money(transferIn)} • รายจ่าย ${money(expenses)} • สุทธิ ${money(netCash)}</p></div>`;
+  };
+  // Canonical runtime owns checkout/shift behavior; no wrapper chaining.
+  document.addEventListener('DOMContentLoaded',()=>{db.shifts=db.shifts||[];window.updateShiftStatus();window.refreshCashDashboard();});
+})();
+
+/* Smart POS Fixed Edition v10 — Finance Core / AR-AP / Cash Drawer / Audit */
+(function(){
+  'use strict';
+  const money=n=>'฿'+(Math.round((Number(n)||0)*100)/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const uuid=s=>window.toUUID?window.toUUID(s):s;
+  const iso=()=>new Date().toISOString();
+  const currentShift=()=>db.currentShift&&db.currentShift.status==='open'?db.currentShift:null;
+  const ensure=()=>{db.customerPayments=db.customerPayments||[];db.customerLedger=db.customerLedger||[];db.financeLedger=db.financeLedger||[];db.supplierPayments=db.supplierPayments||[];db.cashLedger=db.cashLedger||[];};
+  ensure();
+
+  function addFinance(entry){
+    ensure();
+    const e={id:entry.id||'FIN-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,7),createdAt:entry.createdAt||iso(),shiftId:entry.shiftId||(currentShift()?.id||null),userId:entry.userId||(db.activeUser?.id||null),type:entry.type,direction:entry.direction,amount:Number(entry.amount)||0,paymentMethod:entry.paymentMethod||null,referenceType:entry.referenceType||null,referenceId:entry.referenceId||null,customerId:entry.customerId||null,supplierId:entry.supplierId||null,category:entry.category||null,description:entry.description||''};
+    if(!db.financeLedger.some(x=>x.id===e.id))db.financeLedger.push(e); return e;
+  }
+  window.addFinanceLedgerEntry=addFinance;
+
+  // Every cash/transfer sale is recorded once in the finance ledger. Credit sales create AR,
+  // but no cash/bank movement. Existing checkout remains authoritative for stock and bill data.
+  // AR collection is implemented directly by the canonical payment flow.
+  // Fix AR collection: every collection gets AR ledger + finance ledger; only cash enters the
+  // physical drawer. Transfer enters bank/transfer cashflow but never the drawer expected cash.
+
+  // Supplier/AP payment: the old UI only changed status locally. Record the actual money outflow
+  // and keep a payment history so closing a shift and monthly reports remain reconcilable.
+
+  // Cost snapshot for new bills. This protects future profit reports from later cost changes.
+  function ensureBillCostSnapshots(){
+    (db.bills||[]).forEach(b=>(b.items||[]).forEach(i=>{if(i.cost==null&&i.unitCost==null){const p=db.products?.[i.id],v=p?.variants?.find(x=>x.id===i.variantId);if(v)i.cost=Number(v.cost)||0;}}));
+  }
+  ensureBillCostSnapshots();
+
+  // Replace monthly report calculation with a clean separation between revenue and cashflow.
+  window.renderMonthlyReport=function(){
+    ensure(); const el=document.getElementById('report-month'); if(!el)return; if(!el.value)el.value=new Date().toISOString().slice(0,7); const m=el.value;
+    const same=v=>{const d=new Date(v);return !isNaN(d)&&d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')===m;};
+    const bills=(db.bills||[]).filter(b=>same(b.time)&&!b.isRefunded); const sales=bills.reduce((s,b)=>s+Number(b.total||0),0);
+    const cashSales=bills.filter(b=>String(b.method).toUpperCase()==='CASH').reduce((s,b)=>s+Number(b.total||0),0);
+    const transferSales=bills.filter(b=>['TRANSFER','QR_PROMPTPAY'].includes(String(b.method).toUpperCase())).reduce((s,b)=>s+Number(b.total||0),0);
+    const creditSales=bills.filter(b=>String(b.method).toUpperCase()==='CREDIT').reduce((s,b)=>s+Number(b.total||0),0);
+    const cogs=bills.reduce((s,b)=>s+(b.items||[]).reduce((x,i)=>x+Number(i.cost??i.unitCost??0)*Number(i.qty||0),0),0); const gross=sales-cogs;
+    const ar=(db.customerPayments||[]).filter(p=>same(p.receivedAt||p.createdAt)); const arCash=ar.filter(p=>String(p.method).toUpperCase()==='CASH').reduce((s,p)=>s+Number(p.amount||0),0); const arTransfer=ar.filter(p=>String(p.method).toUpperCase()==='TRANSFER').reduce((s,p)=>s+Number(p.amount||0),0);
+    const fin=(db.financeLedger||[]).filter(x=>same(x.createdAt)); const otherIn=fin.filter(x=>x.direction==='IN'&&x.type!=='SALE'&&x.type!=='AR_PAYMENT').reduce((s,x)=>s+Number(x.amount||0),0); const out=fin.filter(x=>x.direction==='OUT').reduce((s,x)=>s+Number(x.amount||0),0);
+    const netCash=cashSales+transferSales+arCash+arTransfer+otherIn-out;
+    const cards=document.getElementById('monthly-report-cards'); if(cards)cards.innerHTML=`<div class="p-4 rounded-2xl bg-indigo-50 border"><span class="text-[10px] font-bold">ยอดขายสุทธิ</span><b class="block text-lg">${money(sales)}</b></div><div class="p-4 rounded-2xl bg-emerald-50 border"><span class="text-[10px] font-bold">กำไรขั้นต้น</span><b class="block text-lg">${money(gross)}</b><small>ต้นทุนขาย ${money(cogs)}</small></div><div class="p-4 rounded-2xl bg-amber-50 border"><span class="text-[10px] font-bold">รับชำระลูกหนี้</span><b class="block text-lg">${money(arCash+arTransfer)}</b></div><div class="p-4 rounded-2xl bg-rose-50 border"><span class="text-[10px] font-bold">เงินออก</span><b class="block text-lg">${money(out)}</b></div><div class="p-4 rounded-2xl bg-slate-100 border col-span-2 md:col-span-4"><span class="text-[10px] font-bold">กระแสเงินสุทธิ</span><b class="block text-xl">${money(netCash)}</b><small>ขายสด/โอน + รับชำระหนี้ + รายรับอื่น − เงินออก (ไม่รวมขายเชื่อเป็นเงินรับ)</small></div>`;
+    const detail=document.getElementById('monthly-report-detail'); if(detail)detail.innerHTML=`<div class="p-3 rounded-xl border"><b>📈 ผลประกอบการ</b><p class="text-slate-500 mt-1">ขาย ${money(sales)} • ต้นทุน ${money(cogs)} • กำไรขั้นต้น ${money(gross)}</p></div><div class="p-3 rounded-xl border"><b>💰 เงินเข้า</b><p class="text-slate-500 mt-1">ขายสด ${money(cashSales)} • โอน ${money(transferSales)} • เก็บหนี้สด ${money(arCash)} • เก็บหนี้โอน ${money(arTransfer)} • รายรับอื่น ${money(otherIn)}</p></div><div class="p-3 rounded-xl border"><b>🤝 ลูกหนี้</b><p class="text-slate-500 mt-1">ขายเชื่อเดือนนี้ ${money(creditSales)} • รับชำระ ${money(arCash+arTransfer)}</p></div><div class="p-3 rounded-xl border"><b>💸 เงินออก</b><p class="text-slate-500 mt-1">จ่ายทั้งหมด ${money(out)}</p></div>`;
+  };
+
+  // Sync finance data to the new server-side ledger. This table is additive and independent from
+  // the physical cash drawer table, so transfer/AR/AP movements are not misclassified as cash.
+  window.forceSyncNow=async function(){
+    ensure(); const c=window.getSupabaseClient?.(); if(!c){ window.showAlert?.('ไม่ได้เชื่อมต่อ Supabase','กรุณากรอก Project URL และ Key ในศูนย์การตั้งค่าก่อน',true); return; }
+    const overlay=document.getElementById('loading-overlay'); if(overlay)overlay.classList.remove('hidden');
+    try{
+      if(window.syncProductsToSupabase && !(await window.syncProductsToSupabase(true)))throw new Error('ซิงค์สินค้าไม่สำเร็จ');
+      if(window.syncTransactionsToSupabase && !(await window.syncTransactionsToSupabase(true)))throw new Error('ซิงค์ธุรกรรมไม่สำเร็จ');
+      if(window.syncCustomerPaymentsToSupabase && !(await window.syncCustomerPaymentsToSupabase(true)))throw new Error('ซิงค์รับชำระหนี้ไม่สำเร็จ');
+      const rows=db.financeLedger.map(x=>({id:uuid(x.id),shift_id:x.shiftId?uuid(x.shiftId):null,user_id:x.userId?uuid(x.userId):null,type:x.type,direction:x.direction,amount:Number(x.amount)||0,payment_method:x.paymentMethod,reference_type:x.referenceType,reference_id:x.referenceId,customer_id:x.customerId?uuid(x.customerId):null,supplier_id:x.supplierId?uuid(x.supplierId):null,category:x.category,description:x.description,created_at:x.createdAt||iso()}));
+      for(let i=0;i<rows.length;i+=250){const {error}=await c.from('finance_ledger').upsert(rows.slice(i,i+250),{onConflict:'id'});if(error)throw new Error('finance_ledger: '+error.message);}
+      const arl=db.customerLedger.map(x=>({id:uuid(x.id),customer_id:x.customerId?uuid(x.customerId):null,shift_id:x.shiftId?uuid(x.shiftId):null,type:x.type,direction:x.direction,amount:Number(x.amount)||0,reference_id:x.referenceId,created_at:x.createdAt||iso(),note:x.note||null}));
+      for(let i=0;i<arl.length;i+=250){const {error}=await c.from('customer_ledger').upsert(arl.slice(i,i+250),{onConflict:'id'});if(error)throw new Error('customer_ledger: '+error.message);}
+      const sp=db.supplierPayments.map(x=>({id:uuid(x.id),supplier_id:x.supplierId?uuid(x.supplierId):null,shift_id:x.shiftId?uuid(x.shiftId):null,reference_id:x.referenceId,amount:Number(x.amount)||0,payment_method:x.paymentMethod,paid_at:x.paidAt||iso(),user_id:x.userId?uuid(x.userId):null}));
+      for(let i=0;i<sp.length;i+=250){const {error}=await c.from('supplier_payments').upsert(sp.slice(i,i+250),{onConflict:'id'});if(error)throw new Error('supplier_payments: '+error.message);}
+      const {count,error:ce}=await c.from('products').select('*',{count:'exact',head:true}); if(ce)throw ce; const local=Object.values(db.products||{}).filter(p=>!p.isDeleted).length;if(Number(ce?0:count)<local)throw new Error(`สินค้าไม่ครบ: ในเครื่อง ${local} แต่ Cloud ${count}`);
+      window.updateSupabaseBadge?.(true);window.showToast?.('ซิงค์ข้อมูลครบ: สินค้า + ขาย + ลูกหนี้ + การเงิน');
+    }catch(e){console.error('v10 force sync',e);window.updateSupabaseBadge?.(false);window.showAlert?.('ซิงค์ไม่ครบ',e.message||String(e),true);}finally{if(overlay)overlay.classList.add('hidden');}
+  };
+  document.addEventListener('DOMContentLoaded',()=>{ensure();window.renderMonthlyReport?.();});
+})();
+
+  // ============================================================
+  // Smart POS Architecture Boundary v12
+  // ------------------------------------------------------------
+  // The HTML still exposes window.* functions because the current
+  // markup uses inline onclick/onchange handlers.  Internally,
+  // however, business domains are now grouped behind one service
+  // registry.  New code MUST call SmartPOS.services.* instead of
+  // adding another window.* patch/wrapper layer.
+  // ============================================================
+  const SP = window.SmartPOS || {};
+  const bind = (name, fallback=null) => (typeof window[name] === 'function' ? window[name] : fallback);
+
+  SP.version = '12.0.0';
+  SP.architecture = 'service-boundary-single-runtime';
+  SP.state = Object.freeze({
+    get db(){ return window.db; },
+    get cart(){ return window.cart || []; },
+    get activeUser(){ return window.db?.activeUser || null; },
+    get activeShift(){ return window.db?.currentShift || null; }
+  });
+
+  SP.services = SP.services || {};
+  SP.services.auth = Object.freeze({
+    can: bind('canDo'),
+    login: bind('verifyEmployeePin'),
+    logout: bind('lockPOS'),
+    saveUser: bind('saveUser'),
+    deleteUser: bind('deleteUser')
+  });
+  SP.services.catalog = Object.freeze({
+    openProduct: bind('openProductModal'),
+    saveProduct: bind('saveProduct'),
+    deleteProduct: bind('deleteProduct'),
+    renderStock: bind('renderStockTable'),
+    renderSale: bind('renderSaleHome')
+  });
+  SP.services.checkout = Object.freeze({
+    calculate: bind('calculateCartViaDBServer'),
+    process: bind('processPaymentRequest'),
+    processDatabase: bind('processDatabaseCheckout'),
+    syncBill: bind('syncBillToSupabaseRPC'),
+    resetCart: bind('resetCartState')
+  });
+  SP.services.inventory = Object.freeze({
+    receivePurchase: bind('confirmReceivePO'),
+    createPurchaseOrder: bind('createPurchaseOrder'),
+    getStock: bind('getVariantStock'),
+    render: bind('renderStockTable')
+  });
+  SP.services.finance = Object.freeze({
+    addLedgerEntry: bind('addFinanceLedgerEntry'),
+    receivePayment: bind('confirmReceivePayment'),
+    paySupplier: bind('markAPPaid'),
+    renderMonthlyReport: bind('renderMonthlyReport')
+  });
+  SP.services.sync = Object.freeze({
+    products: bind('syncProductsToSupabase'),
+    transactions: bind('syncTransactionsToSupabase'),
+    customerPayments: bind('syncCustomerPaymentsToSupabase'),
+    force: bind('forceSyncNow'),
+    pull: bind('loadDatabaseState'),
+    confirmPull: bind('confirmPullFromCloud')
+  });
+  SP.ui = Object.freeze({
+    showView: bind('showView'),
+    alert: bind('showAlert'),
+    toast: bind('showToast'),
+    closeModal: bind('closeModal'),
+    renderReceipt: bind('renderReceipt')
+  });
+
+  // Explicit dependency map makes the architecture inspectable and prevents
+  // future patches from silently depending on an unknown global function.
+  SP.dependencies = Object.freeze({
+    checkout: ['auth.can', 'checkout.calculate', 'checkout.syncBill', 'inventory.render'],
+    inventory: ['auth.can', 'inventory.receive', 'sync.transactions'],
+    finance: ['auth.can', 'finance.addLedgerEntry', 'sync.transactions'],
+    sync: ['sync.products', 'sync.transactions', 'sync.customerPayments']
+  });
+
+  window.SmartPOS = Object.freeze(SP);
+  window.SmartPOSRuntime = Object.freeze({
+    version:'12.0.0',
+    architecture:'service-boundary-single-runtime',
+    rule:'new-business-logic-must-live-under-SmartPOS.services'
+  });
+})();
 </script>
+
 </body>
-</html>
