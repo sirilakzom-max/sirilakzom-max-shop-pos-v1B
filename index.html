@@ -328,7 +328,7 @@
               <input id="ledger-reason" placeholder="รายละเอียด เช่น ค่ารถส่งของ" class="border p-2.5 rounded-xl">
             </div>
             <button onclick="window.addCashLedgerEntry()" class="mt-3 w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs btn-touch">💾 บันทึกรายการ</button>
-            <p class="text-[10px] text-slate-400 mt-2">ยอดขายและรับชำระหนี้จะคำนวณแยกจากบิล/ประวัติรับชำระ เพื่อป้องกันการนับรายรับซ้ำ ส่วนหน้านี้ใช้บันทึกเงินเข้า-ออกที่ไม่ใช่ยอดขาย</p>
+            <p class="text-[10px] text-slate-400 mt-2">ยอดขายจากบิลจะคำนวณจากตารางบิลโดยตรง เพื่อป้องกันการนับรายรับซ้ำ</p>
           </div>
           <div class="bg-white p-5 rounded-3xl border shadow-sm">
             <div class="flex justify-between items-center mb-3"><h4 class="font-extrabold text-slate-800">📋 รายการเงินล่าสุด</h4><span id="cash-ledger-count" class="text-[10px] text-slate-400"></span></div>
@@ -463,11 +463,7 @@
           <p class="text-xs text-slate-500 mb-2">ลูกค้า: <b id="rp-customer-name" class="text-slate-800"></b></p>
           <p class="text-xs text-slate-500 mb-3">ยอดหนี้คงค้าง: <b id="rp-customer-debt" class="text-rose-600"></b></p>
           <input type="hidden" id="rp-customer-id">
-          <select id="rp-method" class="w-full border p-3 rounded-xl font-bold mb-3 outline-none">
-            <option value="CASH">💵 รับเป็นเงินสด</option>
-            <option value="TRANSFER">📱 รับเป็นเงินโอน / QR</option>
-          </select>
-          <input type="number" step="0.01" min="0" id="rp-amount" placeholder="จำนวนเงินที่รับชำระ" class="w-full border p-3 rounded-xl font-bold text-center mb-3 outline-none">
+          <input type="number" step="0.01" id="rp-amount" placeholder="จำนวนเงินที่รับชำระ" class="w-full border p-3 rounded-xl font-bold text-center mb-3 outline-none">
           <button onclick="window.confirmReceivePayment()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold btn-touch">✅ บันทึกรับชำระ</button>
         </div>
       </div>
@@ -1277,7 +1273,8 @@
             display_order: idx + 1
           }));
           if (categoryRows.length > 0) {
-            await upsertInBatches(client, 'categories', categoryRows, { onConflict: 'id' });
+            const { error: catErr } = await client.from('categories').upsert(categoryRows, { onConflict: 'id' });
+            if (catErr) throw catErr;
           }
 
           // 2. Products
@@ -1297,7 +1294,8 @@
             };
           });
           if (productRows.length > 0) {
-            await upsertInBatches(client, 'products', productRows, { onConflict: 'id' });
+            const { error: prodErr } = await client.from('products').upsert(productRows, { onConflict: 'id' });
+            if (prodErr) throw prodErr;
           }
 
           // 3. Product Categories Junction
@@ -1315,7 +1313,7 @@
             });
           });
           if (linkRows.length > 0) {
-            await upsertInBatches(client, 'product_categories', linkRows, { onConflict: 'product_id,category_id' });
+            await client.from('product_categories').upsert(linkRows, { onConflict: 'product_id,category_id' });
           }
 
           // 4. Product Variants
@@ -1335,7 +1333,8 @@
             });
           });
           if (variantRows.length > 0) {
-            await upsertInBatches(client, 'product_variants', variantRows, { onConflict: 'id' });
+            const { error: varErr } = await client.from('product_variants').upsert(variantRows, { onConflict: 'id' });
+            if (varErr) throw varErr;
           }
 
           // 5. Product Fractions
@@ -1354,7 +1353,8 @@
             });
           });
           if (fractionRows.length > 0) {
-            await upsertInBatches(client, 'product_fractions', fractionRows, { onConflict: 'id' });
+            const { error: fracErr } = await client.from('product_fractions').upsert(fractionRows, { onConflict: 'id' });
+            if (fracErr) throw fracErr;
           }
 
           // 6. Customers (previously never synced — credit debt/limits never reached Supabase,
@@ -1368,7 +1368,8 @@
             credit_limit: roundAmt(c.creditLimit || 50000)
           }));
           if (customerRows.length > 0) {
-            await upsertInBatches(client, 'customers', customerRows, { onConflict: 'id' });
+            const { error: custErr } = await client.from('customers').upsert(customerRows, { onConflict: 'id' });
+            if (custErr) throw custErr;
           }
 
           // 7. Employees (PIN-based roster — must exist in Supabase before any bill can
@@ -1384,7 +1385,8 @@
               is_active: true
             }));
           if (employeeRows.length > 0) {
-            await upsertInBatches(client, 'employees', employeeRows, { onConflict: 'id' });
+            const { error: empErr } = await client.from('employees').upsert(employeeRows, { onConflict: 'id' });
+            if (empErr) throw empErr;
           }
 
           return true;
@@ -1410,7 +1412,7 @@
             status: s.endTime ? 'closed' : 'open'
           }));
           if (shiftRows.length > 0) {
-            await upsertInBatches(client, 'shifts', shiftRows, { onConflict: 'id' });
+            await client.from('shifts').upsert(shiftRows, { onConflict: 'id' });
           }
 
           // 2. Bills & Bill Items
@@ -1459,55 +1461,29 @@
           });
 
           if (billRows.length > 0) {
-            await upsertInBatches(client, 'bills', billRows, { onConflict: 'id' });
+            await client.from('bills').upsert(billRows, { onConflict: 'id' });
           }
           if (billItemRows.length > 0) {
-            await upsertInBatches(client, 'bill_items', billItemRows, { onConflict: 'id' });
+            await client.from('bill_items').upsert(billItemRows, { onConflict: 'id' });
           }
 
           // 3. Cash Ledger
-          const ledgerRows = (db.cashLedger || []).filter(tx => ['cash_in','cash_out'].includes(tx.type)).map(tx => ({
+          const ledgerRows = (db.cashLedger || []).map(tx => ({
             id: toUUID(tx.id),
-            shift_id: tx.shiftId ? toUUID(tx.shiftId) : (db.currentShift ? toUUID(db.currentShift.id) : null),
+            shift_id: db.currentShift ? toUUID(db.currentShift.id) : null,
             bill_id: (tx.refId && tx.refId.startsWith('POS-')) ? toUUID(tx.refId) : null,
-            type: tx.type,
-            amount: roundAmt(tx.amount || tx.income || tx.expense || 0),
-            reason: tx.reason || tx.description || tx.category || null
+            type: tx.income > 0 ? 'sale' : (tx.type === 'expense-refund' ? 'refund' : 'cash_out'),
+            amount: roundAmt(tx.income || tx.expense || 0),
+            reason: tx.description
           }));
           if (ledgerRows.length > 0) {
-            await upsertInBatches(client, 'cash_ledger', ledgerRows, { onConflict: 'id' });
+            await client.from('cash_ledger').upsert(ledgerRows, { onConflict: 'id' });
           }
 
           return true;
         } catch (err) {
           console.error("Transactions SQL sync error:", err);
           if (!isQuiet) window.showAlert("ข้อผิดพลาดในการซิงค์ธุรกรรม", err.message, true);
-          return false;
-        }
-      };
-
-      // Customer debt collections are financial transactions, not sales. Keep them in a
-      // dedicated table so cash/transfer collections cannot be confused with new revenue.
-      window.syncCustomerPaymentsToSupabase = async function(isQuiet = false) {
-        const client = window.getSupabaseClient?.();
-        if (!client) return false;
-        const rows = (db.customerPayments || []).map(p => ({
-          id: toUUID(p.id),
-          customer_id: toUUID(p.customerId),
-          shift_id: p.shiftId ? toUUID(p.shiftId) : null,
-          amount: roundAmt(p.amount),
-          payment_method: String(p.method || 'CASH').toLowerCase() === 'transfer' ? 'transfer' : 'cash',
-          received_at: p.receivedAt || new Date().toISOString(),
-          cashier_id: p.cashierId ? toUUID(p.cashierId) : null,
-          note: p.note || null
-        }));
-        if (!rows.length) return true;
-        try {
-          await upsertInBatches(client, 'customer_payments', rows, { onConflict: 'id' });
-          return true;
-        } catch (err) {
-          console.error('Customer payment sync error:', err);
-          if (!isQuiet) window.showAlert?.('ซิงค์รับชำระหนี้ไม่สำเร็จ', err.message || String(err), true);
           return false;
         }
       };
@@ -1525,24 +1501,6 @@
         try {
           const res1 = await window.syncProductsToSupabase(true);
           const res2 = await window.syncTransactionsToSupabase(true);
-          const res3 = await window.syncCustomerPaymentsToSupabase(true);
-          if (!res1 || !res2 || !res3) throw new Error('มีข้อมูลบางส่วนไม่สามารถบันทึกลง Supabase ได้');
-
-          // Final verification: never show a false "sync success" when PostgREST/RLS only
-          // accepted part of a large catalog. Count the two tables that define the catalog.
-          const countExact = async (table) => {
-            const { count, error } = await client.from(table).select('*', { count: 'exact', head: true });
-            if (error) throw error;
-            return Number(count || 0);
-          };
-          const [remoteProducts, remoteVariants] = await Promise.all([
-            countExact('products'), countExact('product_variants')
-          ]);
-          const localProducts = Object.values(db.products || {}).filter(p => !p.isDeleted).length;
-          const localVariants = Object.values(db.products || {}).reduce((n,p) => n + (p.variants || []).length, 0);
-          if (remoteProducts < localProducts || remoteVariants < localVariants) {
-            throw new Error(`ซิงค์สินค้าไม่ครบ: ในเครื่อง ${localProducts.toLocaleString()} สินค้า / ${localVariants.toLocaleString()} ตัวเลือก แต่บน Supabase พบ ${remoteProducts.toLocaleString()} / ${remoteVariants.toLocaleString()} — ระบบจะไม่รายงานว่าสำเร็จ`);
-          }
 
           // Update POS terminal state snapshot
           const terminalUUID = '00000000-0000-0000-0000-000000000001';
@@ -1950,51 +1908,33 @@
       window.processPaymentRequest = function() {
         if (cart.length === 0) return alert("ตะกร้าสินค้าว่างเปล่า");
 
-        const shift = (typeof activeShift === 'function') ? activeShift() : db.currentShift;
-        if (!shift) {
-          return window.showAlert
-            ? window.showAlert("ยังไม่ได้เปิดกะ", "กรุณาเปิดกะการเงินก่อนรับรายการขาย เพื่อให้ยอดเงินและการตรวจนับลิ้นชักถูกต้อง", true)
-            : alert("กรุณาเปิดกะการเงินก่อนรับรายการขาย");
-        }
-
-        const grandTotalStr = document.getElementById('cart-grand-total').innerText.replace('฿', '').replace(/,/g, '');
-        const total = roundAmt(parseFloat(grandTotalStr) || 0);
+        const grandTotalStr = document.getElementById('cart-grand-total').innerText.replace('฿', '').replace(',', '');
+        const total = parseFloat(grandTotalStr) || 0;
         const cid = document.getElementById('pay-customer-select').value;
 
-        if (activePayMethod === 'CREDIT' && (cid === 'GENERAL' || cid === 'walkin')) {
+        if (activePayMethod === 'CREDIT' && cid === 'GENERAL') {
           return alert("กรณีค้างชำระ จำเป็นต้องเลือกชื่อลูกค้าก่อนบันทึก");
         }
 
+        // Credit-limit check (mirrors the check inside the process_checkout_transaction RPC,
+        // per the manual's "ตรวจสอบวงเงินเครดิต" description — previously not enforced client-side
+        // at all, so bills could exceed a customer's credit_limit before the background sync
+        // ever reached Supabase).
         if (activePayMethod === 'CREDIT' && db.customers[cid]) {
           const limit = db.customers[cid].creditLimit ?? 50000;
-          if (roundAmt((db.customers[cid].debt || 0) + total) > limit) {
+          if (roundAmt(db.customers[cid].debt + total) > limit) {
             return window.showAlert
               ? window.showAlert("วงเงินเครดิตไม่พอ", `ยอดหนี้รวมจะเกินวงเงินเครดิตที่กำหนดไว้ (${formatMoney(limit)})`, true)
               : alert(`ยอดหนี้รวมจะเกินวงเงินเครดิตที่กำหนดไว้ (${formatMoney(limit)})`);
           }
         }
 
-        let received = total;
-        let change = 0;
-        if (activePayMethod === 'CASH') {
-          received = roundAmt(parseFloat(document.getElementById('pay-cash-received')?.value) || 0);
-          if (received < total) {
-            return window.showAlert
-              ? window.showAlert("รับเงินสดไม่ครบ", `ยอดที่ต้องรับ ${formatMoney(total)} แต่รับมา ${formatMoney(received)}`, true)
-              : alert("จำนวนเงินสดที่รับมาไม่ครบ");
-          }
-          change = roundAmt(received - total);
-        }
-
         const billId = getDailyBillId();
         const bill = {
           id: billId,
           time: Date.now(),
-          shiftId: shift.id,
           items: cart.map(i => ({ ...i })),
-          total,
-          received,
-          change,
+          total: total,
           method: activePayMethod,
           customerId: cid,
           cashierId: db.activeUser?.id || null,
@@ -2003,6 +1943,7 @@
 
         db.bills.push(bill);
 
+        // Deduct Stock
         cart.forEach(item => {
           const p = db.products[item.id];
           if (p) {
@@ -2011,16 +1952,24 @@
           }
         });
 
+        // Handle Credit Debt
         if (activePayMethod === 'CREDIT' && db.customers[cid]) {
-          db.customers[cid].debt = roundAmt((db.customers[cid].debt || 0) + total);
+          db.customers[cid].debt = roundAmt(db.customers[cid].debt + total);
         }
 
+        // Reset — clears cart, discount, cash-received, payment tab, and customer selection
+        // so nothing carries over ("ค้าง") into the next sale.
         window.resetCartState();
         window.closeModal('modal-cart');
-        window.persist?.();
-        window.showToast(activePayMethod === 'CREDIT' ? "บันทึกการขายเชื่อและเพิ่มลูกหนี้สำเร็จ!" : "บันทึกการขายสำเร็จ!");
+        window.persist?.(); // save the completed sale locally right away (offline-safe)
+        window.showToast("บันทึกการขายสำเร็จ!");
         window.renderReceipt(bill);
-        window.refreshCashDashboard?.();
+
+        // Best-effort authoritative write to Supabase via the atomic RPC (process_checkout_transaction):
+        // re-checks credit limit, re-deducts stock with row locking, and records unit_cost server-side.
+        // Runs in the background so the cashier flow above never blocks on network; if it's offline or
+        // unconfigured this silently no-ops and the periodic/forced sync (syncTransactionsToSupabase)
+        // remains the offline fallback described in the manual.
         window.syncBillToSupabaseRPC?.(bill);
       };
 
@@ -2670,51 +2619,18 @@
         const cid = document.getElementById('rp-customer-id').value;
         const c = db.customers[cid];
         if (!c) return;
-
-        const shift = (typeof activeShift === 'function') ? activeShift() : db.currentShift;
-        if (!shift) return window.showAlert("ยังไม่ได้เปิดกะ", "กรุณาเปิดกะก่อนรับชำระหนี้", true);
-
         const amount = roundAmt(parseFloat(document.getElementById('rp-amount').value) || 0);
-        const method = document.getElementById('rp-method')?.value || 'CASH';
         if (amount <= 0) return window.showAlert("จำนวนเงินไม่ถูกต้อง", "กรุณาระบุจำนวนเงินที่รับชำระ", true);
-        if (amount > roundAmt(c.debt || 0)) return window.showAlert("จำนวนเงินเกินยอดหนี้", `ยอดหนี้คงเหลือมีเพียง ${formatMoney(c.debt)}`, true);
+        if (amount > c.debt) return window.showAlert("จำนวนเงินเกินยอดหนี้", `ยอดหนี้คงเหลือมีเพียง ${formatMoney(c.debt)}`, true);
 
-        const paymentId = 'AR-' + Date.now().toString(36).toUpperCase();
-        c.debt = roundAmt((c.debt || 0) - amount);
-
-        db.customerPayments = db.customerPayments || [];
-        db.customerPayments.push({
-          id: paymentId,
-          customerId: cid,
-          shiftId: shift.id,
-          amount,
-          method,
-          receivedAt: new Date().toISOString(),
-          cashierId: db.activeUser?.id || null,
-          cashierName: db.activeUser?.name || null,
-          note: `รับชำระหนี้จาก ${c.name}`
-        });
-
-        // Only cash collections change the physical drawer. Transfer collections are income,
-        // but must not be added to the cash drawer expected balance.
-        if (method === 'CASH') {
-          db.cashLedger = db.cashLedger || [];
-          db.cashLedger.push({
-            id: 'CL-' + Date.now(), type: 'cash_in', amount,
-            shiftId: shift.id, category: 'รับชำระหนี้',
-            reason: `รับชำระหนี้จาก ${c.name}`, refId: paymentId,
-            createdAt: new Date().toISOString(), userName: db.activeUser?.name || ''
-          });
-        }
+        c.debt = roundAmt(c.debt - amount);
+        db.cashLedger = db.cashLedger || [];
+        db.cashLedger.push({ id: 'CL-' + Date.now(), type: 'cash-in-ar', income: amount, description: `รับชำระหนี้จาก ${c.name}`, refId: cid, time: Date.now() });
 
         window.persist?.();
         window.closeModal('modal-receive-payment');
         window.renderSalesAR();
-        window.refreshCashDashboard?.();
-        window.renderMonthlyReport?.();
-        window.syncTransactionsToSupabase?.(true);
-        window.syncCustomerPaymentsToSupabase?.(true);
-        window.showToast(`รับชำระหนี้ ${formatMoney(amount)} (${method === 'CASH' ? 'เงินสด' : 'เงินโอน'}) เรียบร้อย`);
+        window.showToast(`บันทึกรับชำระหนี้ ${formatMoney(amount)} เรียบร้อย`);
       };
 
       // --- Return / refund workflow ---
@@ -2862,9 +2778,9 @@
     </script>
   
 <script>
-/* Smart POS Fixed Edition v9 • Batch Sync + Accounting Fixes • SQL Schema Compatibility Bridge */
+/* Smart POS Pro V9.60 SQL Schema Compatibility Bridge */
 (function(){
-  const SB_TABLES=['categories','products','product_categories','product_variants','product_fractions','customers','employees','shifts','bills','bill_items','cash_ledger','customer_payments'];
+  const SB_TABLES=['categories','products','product_categories','product_variants','product_fractions','customers','shifts','bills','bill_items','cash_ledger'];
   window.SQL_SCHEMA_VERSION='Smart_POS_Pro_Enterprise_Full_Database_Schema';
 
   // Compatibility fallbacks for missing functions in the original page.
@@ -2903,15 +2819,6 @@
   // Supabase/PostgREST may cap a single response at 1,000 rows.  Always pull in pages
   // so a catalog of 2,117 (or 10,000+) products is never silently truncated.
   const SB_PULL_PAGE_SIZE=500;
-  const SB_WRITE_BATCH_SIZE=250;
-  async function upsertInBatches(client, table, rows, options={}){
-    if(!client || !rows || !rows.length) return;
-    for(let i=0;i<rows.length;i+=SB_WRITE_BATCH_SIZE){
-      const batch=rows.slice(i,i+SB_WRITE_BATCH_SIZE);
-      const {error}=await client.from(table).upsert(batch, options);
-      if(error) throw new Error(`${table} batch ${Math.floor(i/SB_WRITE_BATCH_SIZE)+1} failed: ${error.message||error}`);
-    }
-  }
   async function qAll(table, fn, pageSize=SB_PULL_PAGE_SIZE){
     const c=sb(); if(!c) return null;
     const all=[];
@@ -2953,7 +2860,6 @@
       product_variants:qAll('product_variants',x=>x.select('*').order('product_id').order('id')),
       product_fractions:qAll('product_fractions',x=>x.select('*').order('product_id').order('id')),
       customers:qAll('customers',x=>x.select('*').order('name').order('id')),
-      customer_payments:qAll('customer_payments',x=>x.select('*').order('received_at',{ascending:false}).order('id',{ascending:false})),
       bills:qAll('bills',x=>x.select('*, bill_items(*)').order('created_at',{ascending:false}).order('id',{ascending:false}))
     };
     const keys=Object.keys(queries);
@@ -2971,7 +2877,7 @@
       return false;
     }
     try{
-      const {categories:cats,products:prods,product_categories:links,product_variants:vars,product_fractions:fracs,customers:custs,customer_payments:remotePayments,bills}=results;
+      const {categories:cats,products:prods,product_categories:links,product_variants:vars,product_fractions:fracs,customers:custs,bills}=results;
       window.db=window.db||{};
 
       // Categories — add any remote category not already present locally by name; never
@@ -3041,19 +2947,6 @@
           addedCust++;
         }
         // else: a local record already tracks this customer — leave their local debt as-is.
-      });
-
-      // Customer payments — additive only. These are collections against existing debt,
-      // not new sales revenue.
-      db.customerPayments=db.customerPayments||[];
-      const localPaymentIds=new Set(db.customerPayments.map(x=>x.id));
-      (remotePayments||[]).forEach(r=>{
-        if(localPaymentIds.has(r.id)) return;
-        db.customerPayments.push({
-          id:r.id, customerId:r.customer_id, shiftId:r.shift_id||null,
-          amount:+(r.amount||0), method:String(r.payment_method||'cash').toUpperCase(),
-          receivedAt:r.received_at||null, cashierId:r.cashier_id||null, note:r.note||''
-        });
       });
 
       // Bills — additive only. Never overwrite or remove a local bill; only pull in remote
@@ -3447,41 +3340,7 @@ document.addEventListener('DOMContentLoaded',()=>{ensure();window.renderStockTab
     const list=document.getElementById('cash-ledger-list'),tx=(db.cashLedger||[]).filter(x=>!sh||x.shiftId===sh.id).filter(x=>['cash_in','cash_out'].includes(x.type)).slice().reverse();const cnt=document.getElementById('cash-ledger-count');if(cnt)cnt.textContent=tx.length+' รายการ';if(list)list.innerHTML=tx.length?tx.map(x=>`<div class="flex justify-between gap-3 p-3 rounded-xl border ${x.type==='cash_in'?'bg-emerald-50 border-emerald-100':'bg-rose-50 border-rose-100'}"><div><b class="text-xs">${x.type==='cash_in'?'💚 เงินรับเข้า':'🔴 เงินจ่ายออก'}</b><span class="block text-[10px] text-slate-500">${esc(x.reason||x.category||'-')} • ${new Date(x.createdAt||Date.now()).toLocaleString('th-TH')}</span></div><b class="text-sm">${money(x.amount)}</b></div>`).join(''):'<p class="text-center text-slate-400 text-xs py-8">ยังไม่มีรายการเงินเข้า/ออก</p>';
     window.renderMonthlyReport();
   };
-  window.renderMonthlyReport=function(){
-    const monthEl=document.getElementById('report-month');
-    if(!monthEl)return;
-    if(!monthEl.value)monthEl.value=currentMonth();
-    const m=monthEl.value;
-    const bills=(db.bills||[]).filter(b=>isSameMonth(b.time,m)&&!b.isRefunded);
-    const sales=bills.reduce((s,b)=>s+(Number(b.total)||0),0);
-    const cashSales=bills.filter(b=>String(b.method).toUpperCase()==='CASH').reduce((s,b)=>s+(Number(b.total)||0),0);
-    const transferSales=bills.filter(b=>['TRANSFER','QR_PROMPTPAY'].includes(String(b.method).toUpperCase())).reduce((s,b)=>s+(Number(b.total)||0),0);
-    const creditSales=bills.filter(b=>String(b.method).toUpperCase()==='CREDIT').reduce((s,b)=>s+(Number(b.total)||0),0);
-    const cogs=bills.reduce((s,b)=>s+(b.items||[]).reduce((is,i)=>is+(Number(i.cost??i.unitCost??0)*Number(i.qty||0)),0),0);
-    const grossProfit=roundAmt(sales-cogs);
-    const payments=(db.customerPayments||[]).filter(x=>isSameMonth(x.receivedAt||x.createdAt||x.time,m));
-    const arCash=payments.filter(x=>String(x.method).toUpperCase()==='CASH').reduce((s,x)=>s+(Number(x.amount)||0),0);
-    const arTransfer=payments.filter(x=>String(x.method).toUpperCase()==='TRANSFER').reduce((s,x)=>s+(Number(x.amount)||0),0);
-    const tx=(db.cashLedger||[]).filter(x=>isSameMonth(x.createdAt||x.time,m));
-    const otherIncome=tx.filter(x=>x.type==='cash_in').reduce((s,x)=>s+(Number(x.amount)||0),0);
-    const expenses=tx.filter(x=>x.type==='cash_out').reduce((s,x)=>s+(Number(x.amount)||0),0);
-    const cashIn=roundAmt(cashSales+arCash+otherIncome);
-    const transferIn=roundAmt(transferSales+arTransfer);
-    const netCash=roundAmt(cashIn+transferIn-expenses);
-    const cards=document.getElementById('monthly-report-cards');
-    if(cards)cards.innerHTML=`
-      <div class="p-4 rounded-2xl bg-indigo-50 border border-indigo-100"><span class="text-[10px] text-indigo-500 font-bold">ยอดขายรวม</span><b class="block text-lg text-indigo-700">${money(sales)}</b><small class="text-[9px] text-slate-500">ไม่รวมการเก็บหนี้เก่า</small></div>
-      <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-100"><span class="text-[10px] text-emerald-600 font-bold">กำไรขั้นต้น</span><b class="block text-lg text-emerald-700">${money(grossProfit)}</b></div>
-      <div class="p-4 rounded-2xl bg-amber-50 border border-amber-100"><span class="text-[10px] text-amber-600 font-bold">รับชำระลูกหนี้</span><b class="block text-lg text-amber-700">${money(arCash+arTransfer)}</b><small class="text-[9px] text-slate-500">เงินที่เก็บได้จริง</small></div>
-      <div class="p-4 rounded-2xl bg-rose-50 border border-rose-100"><span class="text-[10px] text-rose-600 font-bold">รายจ่ายเงินสด</span><b class="block text-lg text-rose-700">${money(expenses)}</b></div>
-      <div class="p-4 rounded-2xl bg-slate-100 border col-span-2 md:col-span-4"><span class="text-[10px] text-slate-500 font-bold">เงินสุทธิจากกระแสเงิน</span><b class="block text-xl text-slate-800">${money(netCash)}</b><small class="text-[9px] text-slate-500">ยอดขายที่รับเงินจริง + รับชำระหนี้ + รายรับอื่น − รายจ่าย</small></div>`;
-    const detail=document.getElementById('monthly-report-detail');
-    if(detail)detail.innerHTML=`
-      <div class="p-3 rounded-xl border"><b>💳 เงินจากการขาย</b><p class="text-slate-500 mt-1">สด ${money(cashSales)} • โอน/QR ${money(transferSales)} • เครดิต ${money(creditSales)} • ${bills.length} บิล</p></div>
-      <div class="p-3 rounded-xl border"><b>🤝 รับชำระลูกหนี้</b><p class="text-slate-500 mt-1">สด ${money(arCash)} • โอน ${money(arTransfer)} • รวม ${money(arCash+arTransfer)}</p></div>
-      <div class="p-3 rounded-xl border"><b>📦 ต้นทุนสินค้า</b><p class="text-slate-500 mt-1">ต้นทุนขาย ${money(cogs)} • กำไรขั้นต้น ${money(grossProfit)}</p></div>
-      <div class="p-3 rounded-xl border"><b>💰 กระแสเงิน</b><p class="text-slate-500 mt-1">เงินสดเข้า ${money(cashIn)} • เงินโอนเข้า ${money(transferIn)} • รายจ่าย ${money(expenses)} • สุทธิ ${money(netCash)}</p></div>`;
-  };
+  window.renderMonthlyReport=function(){const monthEl=document.getElementById('report-month');if(!monthEl)return; if(!monthEl.value)monthEl.value=currentMonth();const m=monthEl.value;const bills=(db.bills||[]).filter(b=>isSameMonth(b.time,m)&&!b.isRefunded);const sales=bills.reduce((s,b)=>s+(Number(b.total)||0),0),cashSales=bills.filter(b=>String(b.method).toUpperCase()==='CASH').reduce((s,b)=>s+(Number(b.total)||0),0),qrSales=bills.filter(b=>String(b.method).toUpperCase()!=='CASH'&&String(b.method).toUpperCase()!=='CREDIT').reduce((s,b)=>s+(Number(b.total)||0),0);const tx=(db.cashLedger||[]).filter(x=>isSameMonth(x.createdAt||x.time,m));const otherIncome=tx.filter(x=>x.type==='cash_in').reduce((s,x)=>s+(Number(x.amount)||0),0),expenses=tx.filter(x=>x.type==='cash_out').reduce((s,x)=>s+(Number(x.amount)||0),0);const net=sales+otherIncome-expenses;const cards=document.getElementById('monthly-report-cards');if(cards)cards.innerHTML=`<div class="p-4 rounded-2xl bg-indigo-50 border border-indigo-100"><span class="text-[10px] text-indigo-500 font-bold">ยอดขาย</span><b class="block text-lg text-indigo-700">${money(sales)}</b></div><div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-100"><span class="text-[10px] text-emerald-600 font-bold">รายรับอื่น</span><b class="block text-lg text-emerald-700">${money(otherIncome)}</b></div><div class="p-4 rounded-2xl bg-rose-50 border border-rose-100"><span class="text-[10px] text-rose-600 font-bold">รายจ่าย</span><b class="block text-lg text-rose-700">${money(expenses)}</b></div><div class="p-4 rounded-2xl bg-slate-100 border"><span class="text-[10px] text-slate-500 font-bold">สุทธิ</span><b class="block text-lg text-slate-800">${money(net)}</b></div>`;const detail=document.getElementById('monthly-report-detail');if(detail)detail.innerHTML=`<div class="p-3 rounded-xl border"><b>💳 ช่องทางการขาย</b><p class="text-slate-500 mt-1">เงินสด ${money(cashSales)} • โอน/QR ${money(qrSales)} • ${bills.length} บิล</p></div><div class="p-3 rounded-xl border"><b>🧾 ภาพรวมรายการเงิน</b><p class="text-slate-500 mt-1">รายการรายรับ/รายจ่าย ${tx.length} รายการ • เลือกเดือนอื่นเพื่อดูย้อนหลัง</p></div>`;};
 
   // Attach the active shift to every new local bill without rewriting the existing checkout flow.
   const oldPayment=window.processPaymentRequest; if(oldPayment){window.processPaymentRequest=function(){const n=(db.bills||[]).length;const r=oldPayment.apply(this,arguments);if((db.bills||[]).length>n){const b=db.bills[db.bills.length-1],sh=activeShift();if(sh)b.shiftId=sh.id;persist();window.refreshCashDashboard();}return r;};}
@@ -3489,125 +3348,6 @@ document.addEventListener('DOMContentLoaded',()=>{ensure();window.renderStockTab
   const oldSync=window.syncTransactionsToSupabase; if(oldSync){window.syncTransactionsToSupabase=async function(isQuiet=false){const result=await oldSync.call(this,isQuiet);const c=window.getSupabaseClient?.();if(!c)return result;try{const shifts=(db.shifts||[]).map(s=>({id:uuid(s.id),opened_at:s.startTime||s.opened_at||nowISO(),closed_at:s.endTime||null,starting_cash:Number(s.openingCash)||0,ending_cash:s.cashOnHand==null?null:Number(s.cashOnHand),expected_cash:s.expectedCash==null?null:Number(s.expectedCash),difference:s.difference==null?null:Number(s.difference),status:s.status||'open',notes:s.notes||null}));if(shifts.length){const {error}=await c.from('shifts').upsert(shifts,{onConflict:'id'});if(error)throw error;}const led=(db.cashLedger||[]).filter(x=>['cash_in','cash_out'].includes(x.type)).map(x=>({id:uuid(x.id),shift_id:x.shiftId?uuid(x.shiftId):null,type:x.type,amount:Number(x.amount)||0,reason:x.reason||x.category||null,created_at:x.createdAt||nowISO()}));if(led.length){const {error}=await c.from('cash_ledger').upsert(led,{onConflict:'id'});if(error)throw error;}}catch(e){console.warn('v6 shift/cash sync warning',e);if(!isQuiet)window.showToast?.('⚠️ บันทึกในเครื่องแล้ว แต่ซิงค์กะ/เงินสดไม่สำเร็จ');}return result;};}
   const oldShow=window.showView; if(oldShow){window.showView=function(id){const r=oldShow.apply(this,arguments);if(id==='cash')setTimeout(()=>window.refreshCashDashboard(),0);return r;};}
   document.addEventListener('DOMContentLoaded',()=>{db.shifts=db.shifts||[];window.updateShiftStatus();window.refreshCashDashboard();});
-})();
-</script>
-
-
-<script>
-/* Smart POS Fixed Edition v10 — Finance Core / AR-AP / Cash Drawer / Audit */
-(function(){
-  'use strict';
-  const money=n=>'฿'+(Math.round((Number(n)||0)*100)/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const uuid=s=>window.toUUID?window.toUUID(s):s;
-  const iso=()=>new Date().toISOString();
-  const currentShift=()=>db.currentShift&&db.currentShift.status==='open'?db.currentShift:null;
-  const ensure=()=>{db.customerPayments=db.customerPayments||[];db.customerLedger=db.customerLedger||[];db.financeLedger=db.financeLedger||[];db.supplierPayments=db.supplierPayments||[];db.cashLedger=db.cashLedger||[];};
-  ensure();
-
-  function addFinance(entry){
-    ensure();
-    const e={id:entry.id||'FIN-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,7),createdAt:entry.createdAt||iso(),shiftId:entry.shiftId||(currentShift()?.id||null),userId:entry.userId||(db.activeUser?.id||null),type:entry.type,direction:entry.direction,amount:Number(entry.amount)||0,paymentMethod:entry.paymentMethod||null,referenceType:entry.referenceType||null,referenceId:entry.referenceId||null,customerId:entry.customerId||null,supplierId:entry.supplierId||null,category:entry.category||null,description:entry.description||''};
-    if(!db.financeLedger.some(x=>x.id===e.id))db.financeLedger.push(e); return e;
-  }
-  window.addFinanceLedgerEntry=addFinance;
-
-  // Every cash/transfer sale is recorded once in the finance ledger. Credit sales create AR,
-  // but no cash/bank movement. Existing checkout remains authoritative for stock and bill data.
-  const oldPayment=window.processPaymentRequest;
-  if(oldPayment && !oldPayment.__v10wrapped){
-    const wrapped=function(){
-      const before=(db.bills||[]).length; const r=oldPayment.apply(this,arguments);
-      const after=(db.bills||[]).length;
-      if(after>before){
-        const b=db.bills[after-1]; const sh=currentShift(); if(sh)b.shiftId=sh.id;
-        const method=String(b.method||'CASH').toUpperCase();
-        if(!b._financeRecorded){
-          if(method==='CASH') addFinance({type:'SALE',direction:'IN',amount:b.total,paymentMethod:'CASH',referenceType:'BILL',referenceId:b.id,customerId:b.customerId});
-          else if(['TRANSFER','QR_PROMPTPAY'].includes(method)) addFinance({type:'SALE',direction:'IN',amount:b.total,paymentMethod:'TRANSFER',referenceType:'BILL',referenceId:b.id,customerId:b.customerId});
-          else if(method==='CREDIT'){
-            const items=b.items||[]; items.forEach(i=>{ if(i.cost==null&&i.unitCost==null){const p=db.products?.[i.id],v=p?.variants?.find(x=>x.id===i.variantId);if(v)i.cost=Number(v.cost)||0;} });
-            if(!db.customerLedger.some(x=>x.referenceId===b.id&&x.type==='SALE_CREDIT'))db.customerLedger.push({id:'ARL-'+b.id,customerId:b.customerId,shiftId:b.shiftId||null,type:'SALE_CREDIT',amount:Number(b.total)||0,direction:'DEBIT',referenceId:b.id,createdAt:iso(),note:'ขายเชื่อ'});
-          }
-          b._financeRecorded=true; persist();
-        }
-      }
-      return r;
-    };
-    wrapped.__v10wrapped=true; window.processPaymentRequest=wrapped;
-  }
-
-  // Fix AR collection: every collection gets AR ledger + finance ledger; only cash enters the
-  // physical drawer. Transfer enters bank/transfer cashflow but never the drawer expected cash.
-  const oldConfirm=window.confirmReceivePayment;
-  if(oldConfirm && !oldConfirm.__v10wrapped){
-    const wrapped=function(){
-      const cid=document.getElementById('rp-customer-id')?.value; const before=(db.customerPayments||[]).length;
-      const r=oldConfirm.apply(this,arguments); const after=(db.customerPayments||[]).length;
-      if(after>before){const p=db.customerPayments[after-1];const c=db.customers?.[cid];
-        if(!db.customerLedger.some(x=>x.referenceId===p.id&&x.type==='PAYMENT'))db.customerLedger.push({id:'ARL-'+p.id,customerId:p.customerId,shiftId:p.shiftId,type:'PAYMENT',amount:p.amount,direction:'CREDIT',referenceId:p.id,createdAt:p.receivedAt||iso(),note:p.note||'รับชำระหนี้'});
-        addFinance({id:'FIN-'+p.id,type:'AR_PAYMENT',direction:'IN',amount:p.amount,paymentMethod:String(p.method).toUpperCase()==='TRANSFER'?'TRANSFER':'CASH',referenceType:'CUSTOMER_PAYMENT',referenceId:p.id,customerId:p.customerId,description:`รับชำระหนี้จาก ${c?.name||''}`});
-        persist();
-      } return r;
-    }; wrapped.__v10wrapped=true; window.confirmReceivePayment=wrapped;
-  }
-
-  // Supplier/AP payment: the old UI only changed status locally. Record the actual money outflow
-  // and keep a payment history so closing a shift and monthly reports remain reconcilable.
-  const oldAPPaid=window.markAPPaid;
-  if(oldAPPaid && !oldAPPaid.__v10wrapped){
-    const wrapped=function(id){const ap=(db.cashLedger||[]).find(x=>x.id===id); const amount=Number(ap?.amount)||0; const supplierId=ap?.supplierId||null; const before=ap?.status; const r=oldAPPaid.apply(this,arguments); if(ap&&before!=='PAID'&&ap.status==='PAID'){
-      const sh=currentShift(); const method=String(ap.paymentMethod||'CASH').toUpperCase();
-      addFinance({id:'FIN-AP-'+id,type:'SUPPLIER_PAYMENT',direction:'OUT',amount,paymentMethod:method==='TRANSFER'?'TRANSFER':'CASH',referenceType:'SUPPLIER_AP',referenceId:id,supplierId,description:`ชำระเจ้าหนี้ ${ap.docRef||''}`});
-      if(method==='CASH'&&sh)db.cashLedger.push({id:'CL-AP-'+Date.now(),type:'cash_out',amount,shiftId:sh.id,category:'จ่ายเจ้าหนี้',reason:`จ่ายเจ้าหนี้ ${ap.docRef||''}`,refId:id,createdAt:iso(),userName:db.activeUser?.name||''});
-      db.supplierPayments.push({id:'SP-'+id,referenceId:id,supplierId,shiftId:sh?.id||null,amount,paymentMethod:method,paidAt:iso(),userId:db.activeUser?.id||null}); persist();
-    } return r;}; wrapped.__v10wrapped=true; window.markAPPaid=wrapped;
-  }
-
-  // Cost snapshot for new bills. This protects future profit reports from later cost changes.
-  function ensureBillCostSnapshots(){
-    (db.bills||[]).forEach(b=>(b.items||[]).forEach(i=>{if(i.cost==null&&i.unitCost==null){const p=db.products?.[i.id],v=p?.variants?.find(x=>x.id===i.variantId);if(v)i.cost=Number(v.cost)||0;}}));
-  }
-  ensureBillCostSnapshots();
-
-  // Replace monthly report calculation with a clean separation between revenue and cashflow.
-  const oldMonthly=window.renderMonthlyReport;
-  window.renderMonthlyReport=function(){
-    ensure(); const el=document.getElementById('report-month'); if(!el)return; if(!el.value)el.value=new Date().toISOString().slice(0,7); const m=el.value;
-    const same=v=>{const d=new Date(v);return !isNaN(d)&&d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')===m;};
-    const bills=(db.bills||[]).filter(b=>same(b.time)&&!b.isRefunded); const sales=bills.reduce((s,b)=>s+Number(b.total||0),0);
-    const cashSales=bills.filter(b=>String(b.method).toUpperCase()==='CASH').reduce((s,b)=>s+Number(b.total||0),0);
-    const transferSales=bills.filter(b=>['TRANSFER','QR_PROMPTPAY'].includes(String(b.method).toUpperCase())).reduce((s,b)=>s+Number(b.total||0),0);
-    const creditSales=bills.filter(b=>String(b.method).toUpperCase()==='CREDIT').reduce((s,b)=>s+Number(b.total||0),0);
-    const cogs=bills.reduce((s,b)=>s+(b.items||[]).reduce((x,i)=>x+Number(i.cost??i.unitCost??0)*Number(i.qty||0),0),0); const gross=sales-cogs;
-    const ar=(db.customerPayments||[]).filter(p=>same(p.receivedAt||p.createdAt)); const arCash=ar.filter(p=>String(p.method).toUpperCase()==='CASH').reduce((s,p)=>s+Number(p.amount||0),0); const arTransfer=ar.filter(p=>String(p.method).toUpperCase()==='TRANSFER').reduce((s,p)=>s+Number(p.amount||0),0);
-    const fin=(db.financeLedger||[]).filter(x=>same(x.createdAt)); const otherIn=fin.filter(x=>x.direction==='IN'&&x.type!=='SALE'&&x.type!=='AR_PAYMENT').reduce((s,x)=>s+Number(x.amount||0),0); const out=fin.filter(x=>x.direction==='OUT').reduce((s,x)=>s+Number(x.amount||0),0);
-    const netCash=cashSales+transferSales+arCash+arTransfer+otherIn-out;
-    const cards=document.getElementById('monthly-report-cards'); if(cards)cards.innerHTML=`<div class="p-4 rounded-2xl bg-indigo-50 border"><span class="text-[10px] font-bold">ยอดขายสุทธิ</span><b class="block text-lg">${money(sales)}</b></div><div class="p-4 rounded-2xl bg-emerald-50 border"><span class="text-[10px] font-bold">กำไรขั้นต้น</span><b class="block text-lg">${money(gross)}</b><small>ต้นทุนขาย ${money(cogs)}</small></div><div class="p-4 rounded-2xl bg-amber-50 border"><span class="text-[10px] font-bold">รับชำระลูกหนี้</span><b class="block text-lg">${money(arCash+arTransfer)}</b></div><div class="p-4 rounded-2xl bg-rose-50 border"><span class="text-[10px] font-bold">เงินออก</span><b class="block text-lg">${money(out)}</b></div><div class="p-4 rounded-2xl bg-slate-100 border col-span-2 md:col-span-4"><span class="text-[10px] font-bold">กระแสเงินสุทธิ</span><b class="block text-xl">${money(netCash)}</b><small>ขายสด/โอน + รับชำระหนี้ + รายรับอื่น − เงินออก (ไม่รวมขายเชื่อเป็นเงินรับ)</small></div>`;
-    const detail=document.getElementById('monthly-report-detail'); if(detail)detail.innerHTML=`<div class="p-3 rounded-xl border"><b>📈 ผลประกอบการ</b><p class="text-slate-500 mt-1">ขาย ${money(sales)} • ต้นทุน ${money(cogs)} • กำไรขั้นต้น ${money(gross)}</p></div><div class="p-3 rounded-xl border"><b>💰 เงินเข้า</b><p class="text-slate-500 mt-1">ขายสด ${money(cashSales)} • โอน ${money(transferSales)} • เก็บหนี้สด ${money(arCash)} • เก็บหนี้โอน ${money(arTransfer)} • รายรับอื่น ${money(otherIn)}</p></div><div class="p-3 rounded-xl border"><b>🤝 ลูกหนี้</b><p class="text-slate-500 mt-1">ขายเชื่อเดือนนี้ ${money(creditSales)} • รับชำระ ${money(arCash+arTransfer)}</p></div><div class="p-3 rounded-xl border"><b>💸 เงินออก</b><p class="text-slate-500 mt-1">จ่ายทั้งหมด ${money(out)}</p></div>`;
-    if(oldMonthly && false)oldMonthly();
-  };
-
-  // Sync finance data to the new server-side ledger. This table is additive and independent from
-  // the physical cash drawer table, so transfer/AR/AP movements are not misclassified as cash.
-  const oldSync=window.forceSyncNow;
-  window.forceSyncNow=async function(){
-    ensure(); const c=window.getSupabaseClient?.(); if(!c)return oldSync?.();
-    const overlay=document.getElementById('loading-overlay'); if(overlay)overlay.classList.remove('hidden');
-    try{
-      if(window.syncProductsToSupabase && !(await window.syncProductsToSupabase(true)))throw new Error('ซิงค์สินค้าไม่สำเร็จ');
-      if(window.syncTransactionsToSupabase && !(await window.syncTransactionsToSupabase(true)))throw new Error('ซิงค์ธุรกรรมไม่สำเร็จ');
-      if(window.syncCustomerPaymentsToSupabase && !(await window.syncCustomerPaymentsToSupabase(true)))throw new Error('ซิงค์รับชำระหนี้ไม่สำเร็จ');
-      const rows=db.financeLedger.map(x=>({id:uuid(x.id),shift_id:x.shiftId?uuid(x.shiftId):null,user_id:x.userId?uuid(x.userId):null,type:x.type,direction:x.direction,amount:Number(x.amount)||0,payment_method:x.paymentMethod,reference_type:x.referenceType,reference_id:x.referenceId,customer_id:x.customerId?uuid(x.customerId):null,supplier_id:x.supplierId?uuid(x.supplierId):null,category:x.category,description:x.description,created_at:x.createdAt||iso()}));
-      for(let i=0;i<rows.length;i+=250){const {error}=await c.from('finance_ledger').upsert(rows.slice(i,i+250),{onConflict:'id'});if(error)throw new Error('finance_ledger: '+error.message);}
-      const arl=db.customerLedger.map(x=>({id:uuid(x.id),customer_id:x.customerId?uuid(x.customerId):null,shift_id:x.shiftId?uuid(x.shiftId):null,type:x.type,direction:x.direction,amount:Number(x.amount)||0,reference_id:x.referenceId,created_at:x.createdAt||iso(),note:x.note||null}));
-      for(let i=0;i<arl.length;i+=250){const {error}=await c.from('customer_ledger').upsert(arl.slice(i,i+250),{onConflict:'id'});if(error)throw new Error('customer_ledger: '+error.message);}
-      const sp=db.supplierPayments.map(x=>({id:uuid(x.id),supplier_id:x.supplierId?uuid(x.supplierId):null,shift_id:x.shiftId?uuid(x.shiftId):null,reference_id:x.referenceId,amount:Number(x.amount)||0,payment_method:x.paymentMethod,paid_at:x.paidAt||iso(),user_id:x.userId?uuid(x.userId):null}));
-      for(let i=0;i<sp.length;i+=250){const {error}=await c.from('supplier_payments').upsert(sp.slice(i,i+250),{onConflict:'id'});if(error)throw new Error('supplier_payments: '+error.message);}
-      const {count,error:ce}=await c.from('products').select('*',{count:'exact',head:true}); if(ce)throw ce; const local=Object.values(db.products||{}).filter(p=>!p.isDeleted).length;if(Number(ce?0:count)<local)throw new Error(`สินค้าไม่ครบ: ในเครื่อง ${local} แต่ Cloud ${count}`);
-      window.updateSupabaseBadge?.(true);window.showToast?.('ซิงค์ข้อมูลครบ: สินค้า + ขาย + ลูกหนี้ + การเงิน');
-    }catch(e){console.error('v10 force sync',e);window.updateSupabaseBadge?.(false);window.showAlert?.('ซิงค์ไม่ครบ',e.message||String(e),true);}finally{if(overlay)overlay.classList.add('hidden');}
-  };
-  document.addEventListener('DOMContentLoaded',()=>{ensure();window.renderMonthlyReport?.();});
 })();
 </script>
 
